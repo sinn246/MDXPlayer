@@ -228,8 +228,7 @@ namespace X68K
         Scale = 0;
         Pcm = 0;
         Pcm16Prev = 0;
-        InpPcm = InpPcm_prev = OutPcm = 0;
-        OutInpPcm = OutInpPcm_prev = 0;
+        InpPcm = 0;
         AdpcmRate = 15625*12;
         OutRate = rate*12;  //Why 12 ??  by sinn246
         RateCounter = 0;
@@ -249,8 +248,7 @@ namespace X68K
         Scale = 0;
         Pcm = 0;
         Pcm16Prev = 0;
-        InpPcm = InpPcm_prev = OutPcm = 0;
-        OutInpPcm = OutInpPcm_prev = 0;
+        InpPcm = 0;
         
         N1Data = 0;
         N1DataFlag = 0;

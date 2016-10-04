@@ -40,20 +40,6 @@ namespace X68K
 		int mSampleRate;
         biquad* bq0;
         biquad* bq1;
-//        AudioConverterRef ACRef;
-
-		sint32 OutInpAdpcm[2];
-		sint32 OutInpAdpcm_prev[2];
-		sint32 OutInpAdpcm_prev2[2];
-		sint32 OutOutAdpcm[2];
-		sint32 OutOutAdpcm_prev[2];
-		sint32 OutOutAdpcm_prev2[2];  // 高音フィルター２用バッファ
-
-		sint32 OutInpOutAdpcm[2];
-		sint32 OutInpOutAdpcm_prev[2];
-		sint32 OutInpOutAdpcm_prev2[2];
-		sint32 OutOutInpAdpcm[2];
-		sint32 OutOutInpAdpcm_prev[2];  // 高音フィルター３用バッファ
 
         inline void pcmsetRAW(Sample* buffer, int ndata);
 	};

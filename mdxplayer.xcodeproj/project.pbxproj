@@ -13,9 +13,6 @@
 		C32DD930170C610900D11883 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C32DD92F170C610900D11883 /* UIKit.framework */; };
 		C32DD932170C610900D11883 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C32DD931170C610900D11883 /* Foundation.framework */; };
 		C32DD934170C610900D11883 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C32DD933170C610900D11883 /* CoreGraphics.framework */; };
-		C32DD981170C614D00D11883 /* downsample.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C32DD95A170C614D00D11883 /* downsample.cpp */; };
-		C32DD982170C614D00D11883 /* lowpass_44.dat in Resources */ = {isa = PBXBuildFile; fileRef = C32DD95D170C614D00D11883 /* lowpass_44.dat */; };
-		C32DD983170C614D00D11883 /* lowpass_48.dat in Resources */ = {isa = PBXBuildFile; fileRef = C32DD95E170C614D00D11883 /* lowpass_48.dat */; };
 		C32DD984170C614D00D11883 /* fmgen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C32DD961170C614D00D11883 /* fmgen.cpp */; };
 		C32DD985170C614D00D11883 /* fmtimer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C32DD964170C614D00D11883 /* fmtimer.cpp */; };
 		C32DD986170C614D00D11883 /* opm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C32DD968170C614D00D11883 /* opm.cpp */; };
@@ -77,11 +74,6 @@
 		C32DD92F170C610900D11883 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		C32DD931170C610900D11883 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		C32DD933170C610900D11883 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
-		C32DD95A170C614D00D11883 /* downsample.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = downsample.cpp; sourceTree = "<group>"; };
-		C32DD95B170C614D00D11883 /* downsample.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = downsample.h; sourceTree = "<group>"; };
-		C32DD95C170C614D00D11883 /* global.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = global.h; sourceTree = "<group>"; };
-		C32DD95D170C614D00D11883 /* lowpass_44.dat */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = lowpass_44.dat; sourceTree = "<group>"; };
-		C32DD95E170C614D00D11883 /* lowpass_48.dat */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = lowpass_48.dat; sourceTree = "<group>"; };
 		C32DD960170C614D00D11883 /* diag.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = diag.h; sourceTree = "<group>"; };
 		C32DD961170C614D00D11883 /* fmgen.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = fmgen.cpp; sourceTree = "<group>"; };
 		C32DD962170C614D00D11883 /* fmgen.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fmgen.h; sourceTree = "<group>"; };
@@ -250,25 +242,12 @@
 		C32DD956170C614D00D11883 /* jni */ = {
 			isa = PBXGroup;
 			children = (
-				C32DD959170C614D00D11883 /* downsample */,
 				C32DD95F170C614D00D11883 /* fmgen */,
 				C32DD96F170C614D00D11883 /* mxdrvg */,
 				C32DD975170C614D00D11883 /* pcm8 */,
 				C32DD97B170C614D00D11883 /* types.h */,
 			);
 			path = jni;
-			sourceTree = "<group>";
-		};
-		C32DD959170C614D00D11883 /* downsample */ = {
-			isa = PBXGroup;
-			children = (
-				C32DD95A170C614D00D11883 /* downsample.cpp */,
-				C32DD95B170C614D00D11883 /* downsample.h */,
-				C32DD95C170C614D00D11883 /* global.h */,
-				C32DD95D170C614D00D11883 /* lowpass_44.dat */,
-				C32DD95E170C614D00D11883 /* lowpass_48.dat */,
-			);
-			path = downsample;
 			sourceTree = "<group>";
 		};
 		C32DD95F170C614D00D11883 /* fmgen */ = {
@@ -465,8 +444,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				C32FC9B21D63845800971AAD /* KH-Dot-Kodenmachou-16-Ki.ttf in Resources */,
-				C32DD982170C614D00D11883 /* lowpass_44.dat in Resources */,
-				C32DD983170C614D00D11883 /* lowpass_48.dat in Resources */,
 				C37CDDCC196E3056001E3700 /* Images.xcassets in Resources */,
 				C32DD999170C6DCC00D11883 /* buildin in Resources */,
 				C32FE2301D604B1B00C61197 /* Media.xcassets in Resources */,
@@ -500,7 +477,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_ROOT}/../Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n";
+			shellScript = "diff \"${PODS_ROOT}/../Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [[ $? != 0 ]] ; then\n    cat << EOM\nerror: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\nEOM\n    exit 1\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		AA803669E2A757282A81C5E9 /* [CP] Copy Pods Resources */ = {
@@ -540,7 +517,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C32DD981170C614D00D11883 /* downsample.cpp in Sources */,
 				C32DD984170C614D00D11883 /* fmgen.cpp in Sources */,
 				F8350FF41DA378FC00A9B239 /* biquad.c in Sources */,
 				C32DD985170C614D00D11883 /* fmtimer.cpp in Sources */,

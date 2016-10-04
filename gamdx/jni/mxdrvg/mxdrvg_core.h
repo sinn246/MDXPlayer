@@ -34,7 +34,6 @@
 
 #include "../fmgen/opm.h"
 #include "../pcm8/x68pcm8.h"
-#include "../downsample/downsample.h"
 
 extern volatile unsigned char OpmReg1B;  // OPM ÉåÉWÉXÉ^ $1B ÇÃì‡óe
 
@@ -79,7 +78,6 @@ class X68OPM : public FM::OPM {
 };
 static X68OPM OPM;
 static X68K::X68PCM8 PCM8;
-static X68K::DOWNSAMPLE DS;
 
 /***************************************************************/
 
@@ -259,38 +257,32 @@ int MXDRVG_Start(
 	switch (samprate) {
 	  case 22050:
 		G.SAMPRATE = 22050;
-//		G.INNERSAMPRATE = 22050;
 		G.OPMFILTER = 0;
 		break;
 
 	  case 44100:
 		G.SAMPRATE = 44100;
-//		G.INNERSAMPRATE = 62500;
 		G.OPMFILTER = (filtermode&2) ? 1 : 0;
 		break;
 
 	  case 48000:
 		G.SAMPRATE = 48000;
-//		G.INNERSAMPRATE = 62500;
 		G.OPMFILTER = (filtermode&2) ? 1 : 0;
 		break;
 
 	  case 62500:
 		G.SAMPRATE = 62500;
-//		G.INNERSAMPRATE = 62500;
 		G.OPMFILTER = (filtermode&2) ? 1 : 0;
 		break;
 
 	  default:
 		G.SAMPRATE = 0;
-//		G.INNERSAMPRATE = 0;
 		G.OPMFILTER = 0;
 		return -1;
 	}
 
 	OPM.Init(4000000, G.SAMPRATE, (G.OPMFILTER != 0));
 	PCM8.Init(G.SAMPRATE);
-//	DS.Init(G.INNERSAMPRATE, G.SAMPRATE, ((filtermode&1) == 0));
 
 	OPM.SetVolume(-12);
 	PCM8.SetVolume(0);
