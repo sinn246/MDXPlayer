@@ -4,7 +4,7 @@
 //
 //  Created by 西村信一 on 2016/10/04.
 //  Copyright © 2016年 asada. All rights reserved.
-//
+// 詳細はbiquad.cを参照
 
 #ifndef biquad_h
 #define biquad_h

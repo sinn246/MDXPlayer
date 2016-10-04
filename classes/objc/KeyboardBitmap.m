@@ -76,7 +76,6 @@ void putAt(int x,int y,UInt8* PCG,size_t size)
 
 void putAtC(int x,int y,UInt8* PCG,size_t size,UInt8* col)
 {
-  UInt8 d;
   for(UInt32* p = addr(x,y); size>0; size-=4,p+=BS_X){
     for(int i=0; i<4; i++){
       if((*PCG++)){ // skip if 0
@@ -186,7 +185,6 @@ static void makeInitialBitmap()
 
 static void makeLamp(){
   TRACKINFO* tif = shared_TRACKINFO;
-  UInt8 d0_b;
   UInt16 d0_w;
   int x,y;
   UInt8 col[] = {0,255,0};

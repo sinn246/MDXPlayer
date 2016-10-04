@@ -2,7 +2,10 @@
 //  biquad.c
 //  mdxplayer
 //
-//  Created by 西村信一 on 2016/10/04.
+//  Created by 西村信一 on 2016/10/04. 読んでの通り引用です。
+// 下記のリンクは今は切れていて
+// http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
+// で読めます。
 //  Copyright © 2016年 asada. All rights reserved.
 //
 
@@ -28,7 +31,6 @@
  * Tom St Denis -- http://tomstdenis.home.dhs.org
  */
 
-/* this would be biquad.h */
 #include <math.h>
 #include <stdlib.h>
 
