@@ -335,82 +335,17 @@ void MXDRVG_End(
 
 }
 
-/***************************************************************/
-
-int MXDRVG_GetPCM(
-	SWORD *buf,
-	int len
-) {
-	SLONG rest_us;
-	static Sample *innerbuf = NULL;
-	static ULONG innerbuflen = 0;
-	int rest_len = len;
-	Sample *outerbuf = (Sample *)buf;
-
-	if (len > 1024) return (0);
-
-	rest_us = (SLONG)(len*1000000)/G.SAMPRATE;
-	rest_len = len;
-	while (rest_len > 0) {
-		ULONG create_len = (ULONG)rest_len;
-		ULONG event_us = OPM.GetNextEvent();
-		if (event_us == 0) {
-			//
-		} else if ((SLONG)event_us < rest_us) {
-			create_len = G.SAMPRATE*event_us/1000000;
-			if (create_len == 0) {
-				create_len = 1;
-			}
-		} else {
-			//
-		}
-		if (create_len == 0) break;
-		ULONG create_len2 = DS.GetInSamplesForDownSample(create_len);
-		if (innerbuflen < create_len2) {
-			if (innerbuf) free(innerbuf);
-			innerbuflen = create_len2*2;
-			innerbuf = (Sample *)malloc(innerbuflen * sizeof(Sample) * 2);
-		}
-		if (innerbuf) {
-			memset(innerbuf, 0, create_len2*sizeof(Sample)*2);
-			OPM.Mix(innerbuf, create_len2);
-			PCM8.Mix(innerbuf, create_len2);
-			if (TotalVolume != 256) {
-				for (ULONG j=0; j<create_len2; j++) {
-					int v0 = (innerbuf[j*2+0] * TotalVolume) >> 8;
-					int v1 = (innerbuf[j*2+1] * TotalVolume) >> 8;
-					if (v0 < -32768) v0 = -32768;
-					if (v1 < -32768) v1 = -32768;
-					if (v0 > 32767) v0 = 32767;
-					if (v1 > 32767) v1 = 32767;
-					innerbuf[j*2+0] = v0;
-					innerbuf[j*2+1] = v1;
-				}
-			}
-			DS.DownSample(innerbuf, create_len, outerbuf);
-			outerbuf += create_len*2;
-		}
-		G.PLAYSAMPLES += create_len;
-		ULONG use_us = (create_len*1000000)/G.SAMPRATE;
-		OPM.Count(use_us);
-		rest_us -= use_us;
-		rest_len -= create_len;
-	}
-	return (len);
-}
 
 /***************************************************************/
 
 static Sample _innerbuf[8192];
 static Sample _inner156buf[8192];
 // by sinn246
-int MXDRVG_GetPCM_AppleResampler(
+int MXDRVG_GetPCM(
                   SWORD *buf,
                   int len
                   ) {
     SLONG rest_us;
-    static Sample *innerbuf = NULL;
-    static ULONG innerbuflen = 0;
     int rest_len = len;
     Sample *outerbuf = (Sample *)buf;
     
@@ -430,23 +365,24 @@ int MXDRVG_GetPCM_AppleResampler(
             }
         }
         if (create_len == 0) break;
-        memset(innerbuf, 0, create_len*sizeof(Sample)*2);
-        OPM.Mix(innerbuf, create_len);
-        PCM8.MixRAW(innerbuf, create_len);
+        memset(_innerbuf, 0, create_len*sizeof(Sample)*2);
+        OPM.Mix(_innerbuf, create_len);
+        PCM8.MixRAW(_innerbuf, create_len);
         if (TotalVolume != 256) {
             for (ULONG j=0; j<create_len; j++) {
-                int v0 = (innerbuf[j*2+0] * TotalVolume) >> 8;
+                int v0 = (_innerbuf[j*2+0] * TotalVolume) >> 8;
                 
-                int v1 = (innerbuf[j*2+1] * TotalVolume) >> 8;
+                int v1 = (_innerbuf[j*2+1] * TotalVolume) >> 8;
                 if (v0 < -32768) v0 = -32768;
                 if (v1 < -32768) v1 = -32768;
                 if (v0 > 32767) v0 = 32767;
                 if (v1 > 32767) v1 = 32767;
-                innerbuf[j*2+0] = v0;
-                innerbuf[j*2+1] = v1;
+                _innerbuf[j*2+0] = v0;
+                _innerbuf[j*2+1] = v1;
             }
         }
 //            DS.DownSample(innerbuf, create_len, outerbuf);
+        memcpy(outerbuf, _innerbuf, create_len*sizeof(Sample)*2);
         outerbuf += create_len*2;
         G.PLAYSAMPLES += create_len;
         ULONG use_us = (create_len*1000000)/G.SAMPRATE;

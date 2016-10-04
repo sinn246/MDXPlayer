@@ -21,11 +21,19 @@ typedef struct {
 }
 biquad;
 
-extern smp_type BiQuad(smp_type sample, biquad * b);
-extern biquad *BiQuad_new(int type, smp_type dbGain, /* gain of filter */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+smp_type BiQuad(smp_type sample, biquad * b);
+biquad *BiQuad_new(int type, smp_type dbGain, /* gain of filter */
                           smp_type freq,             /* center frequency */
                           smp_type srate,            /* sampling rate */
                           smp_type bandwidth);       /* bandwidth in octaves */
+
+#ifdef __cplusplus
+}
+#endif
 
 /* filter types */
 enum {

@@ -162,126 +162,12 @@ namespace X68K
         InpPcm = (Pcm&(int)0xFFFFFFFC)<<(4+4);
     }
     
-    
-    // -32768<<4 <= retval <= +32768<<4
-    int Pcm8::GetPcm22() {
-        if (AdpcmReg & 0x80) {  // ADPCM 停止中
-            return 0x80000000;
-        }
-        RateCounter -= AdpcmRate;
-        while (RateCounter < 0) {
-            if (PcmKind == 5) {  // 16bitPCM
-                int dataH,dataL;
-                dataH = DmaGetByte();
-                if (dataH == 0x80000000) {
-                    RateCounter = 0;
-                    AdpcmReg = 0xC7;  // ADPCM 停止
-                    return 0x80000000;
-                }
-                dataL = DmaGetByte();
-                if (dataL == 0x80000000) {
-                    RateCounter = 0;
-                    AdpcmReg = 0xC7;  // ADPCM 停止
-                    return 0x80000000;
-                }
-                pcm16_2pcm((int)(short)((dataH<<8)|dataL));  // OutPcm に値が入る
-            } else if (PcmKind == 6) {  // 8bitPCM
-                int data;
-                data = DmaGetByte();
-                if (data == 0x80000000) {
-                    RateCounter = 0;
-                    AdpcmReg = 0xC7;  // ADPCM 停止
-                    return 0x80000000;
-                }
-                pcm16_2pcm((int)(char)data);  // InpPcm に値が入る
-            } else {
-                int N10Data;  // (N1Data << 4) | N0Data
-                if (N1DataFlag == 0) {  // 次のADPCMデータが内部にない場合
-                    N10Data = DmaGetByte();  // DMA転送(1バイト)
-                    if (N10Data == 0x80000000) {
-                        RateCounter = 0;
-                        AdpcmReg = 0xC7;  // ADPCM 停止
-                        return 0x80000000;
-                    }
-                    adpcm2pcm(N10Data & 0x0F);  // InpPcm に値が入る
-                    N1Data = (N10Data >> 4) & 0x0F;
-                    N1DataFlag = 1;
-                } else {
-                    adpcm2pcm(N1Data);  // InpPcm に値が入る
-                    N1DataFlag = 0;
-                }
-            }
-            RateCounter += 15625*12;
-        }
-        OutPcm = ((InpPcm<<9) - (InpPcm_prev<<9) + 459*OutPcm) >> 9;
-        InpPcm_prev = InpPcm;
         
-        return ((OutPcm*Volume)>>4);
-    }
-    
-    
-    // -32768<<4 <= retval <= +32768<<4
-    int Pcm8::GetPcm62() {
-        if (AdpcmReg & 0x80) {  // ADPCM 停止中
-            return 0x80000000;
-        }
-        RateCounter -= AdpcmRate;
-        while (RateCounter < 0) {
-            if (PcmKind == 5) {  // 16bitPCM
-                int dataH,dataL;
-                dataH = DmaGetByte();
-                if (dataH == 0x80000000) {
-                    RateCounter = 0;
-                    AdpcmReg = 0xC7;  // ADPCM 停止
-                    return 0x80000000;
-                }
-                dataL = DmaGetByte();
-                if (dataL == 0x80000000) {
-                    RateCounter = 0;
-                    AdpcmReg = 0xC7;  // ADPCM 停止
-                    return 0x80000000;
-                }
-                pcm16_2pcm((int)(short)((dataH<<8)|dataL));  // OutPcm に値が入る
-            } else if (PcmKind == 6) {  // 8bitPCM
-                int data;
-                data = DmaGetByte();
-                if (data == 0x80000000) {
-                    RateCounter = 0;
-                    AdpcmReg = 0xC7;  // ADPCM 停止
-                    return 0x80000000;
-                }
-                pcm16_2pcm((int)(char)data);  // InpPcm に値が入る
-            } else {
-                int N10Data;  // (N1Data << 4) | N0Data
-                if (N1DataFlag == 0) {  // 次のADPCMデータが内部にない場合
-                    N10Data = DmaGetByte();  // DMA転送(1バイト)
-                    if (N10Data == 0x80000000) {
-                        RateCounter = 0;
-                        AdpcmReg = 0xC7;  // ADPCM 停止
-                        return 0x80000000;
-                    }
-                    adpcm2pcm(N10Data & 0x0F);  // InpPcm に値が入る
-                    N1Data = (N10Data >> 4) & 0x0F;
-                    N1DataFlag = 1;
-                } else {
-                    adpcm2pcm(N1Data);  // InpPcm に値が入る
-                    N1DataFlag = 0;
-                }
-            }
-            RateCounter += 15625*12*4;
-        }
-        OutInpPcm = (InpPcm<<9) - (InpPcm_prev<<9) +  OutInpPcm-(OutInpPcm>>5)-(OutInpPcm>>10);
-        InpPcm_prev = InpPcm;
-        OutPcm = OutInpPcm - OutInpPcm_prev + OutPcm-(OutPcm>>8)-(OutPcm>>9)-(OutPcm>>12);
-        OutInpPcm_prev = OutInpPcm;
-        return ((OutPcm>>9)*Volume)>>4;
-    }
-    
     int Pcm8::GetPcmRAW() {
         if (AdpcmReg & 0x80) {  // ADPCM 停止中
             return 0x80000000;
         }
-        RateCounter -= 15625;
+        RateCounter -= AdpcmRate;
         while (RateCounter < 0) {
             if (PcmKind == 5) {  // 16bitPCM
                 int dataH,dataL;
@@ -324,7 +210,7 @@ namespace X68K
                     N1DataFlag = 0;
                 }
             }
-            RateCounter += AdpcmRate;
+            RateCounter += OutRate;
         }
         return (InpPcm*Volume)>>12;
     }
@@ -344,7 +230,8 @@ namespace X68K
         Pcm16Prev = 0;
         InpPcm = InpPcm_prev = OutPcm = 0;
         OutInpPcm = OutInpPcm_prev = 0;
-        AdpcmRate = rate;  // by sinn246
+        AdpcmRate = 15625*12;
+        OutRate = rate*12;  //Why 12 ??  by sinn246
         RateCounter = 0;
         N1Data = 0;
         N1DataFlag = 0;

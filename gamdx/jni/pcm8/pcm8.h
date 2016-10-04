@@ -14,6 +14,7 @@ class Pcm8 {
 	int InpPcm,InpPcm_prev,OutPcm;  // HPF用 16bit PCM Data
 	int OutInpPcm,OutInpPcm_prev;  // HPF用
 	int AdpcmRate;  // 187500(15625*12), 125000(10416.66*12), 93750(7812.5*12), 62500(5208.33*12), 46875(3906.25*12), ...
+    int OutRate;
 	int RateCounter;
 	int N1Data;  // ADPCM 1サンプルのデータの保存
 	int N1DataFlag;  // 0 or 1
@@ -51,8 +52,6 @@ public:
 	int GetRest();
 	int GetMode();
 
-	int GetPcm22();
-	int GetPcm62();
     int GetPcmRAW();
     
 };

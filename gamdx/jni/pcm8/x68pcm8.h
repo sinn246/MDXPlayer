@@ -55,8 +55,6 @@ namespace X68K
 		sint32 OutOutInpAdpcm[2];
 		sint32 OutOutInpAdpcm_prev[2];  // 高音フィルター３用バッファ
 
-		inline void pcmset62500(Sample* buffer, int ndata);
-		inline void pcmset22050(Sample* buffer, int ndata);
         inline void pcmsetRAW(Sample* buffer, int ndata);
 	};
 
