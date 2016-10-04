@@ -83,7 +83,7 @@ class DropboxListVC: ListVC {
 	}
 
 	func tapLogout() {
-		DropboxClientsManager.unlinkClient()
+		DropboxClientsManager.unlinkClients()
 		showRightButton()
 	}
 
