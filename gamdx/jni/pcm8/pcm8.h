@@ -41,7 +41,7 @@ public:
 
 	Pcm8(void);
 	~Pcm8() {};
-	void Init();
+	void Init(int rate);
 	void Reset();
 
 	int Out(void *adrs, int mode, int len);
@@ -53,7 +53,8 @@ public:
 
 	int GetPcm22();
 	int GetPcm62();
-
+    int GetPcmRAW();
+    
 };
 
 }

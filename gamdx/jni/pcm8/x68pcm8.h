@@ -3,10 +3,12 @@
 #include <math.h>
 #include <string.h>
 #include <assert.h>
+#include <AudioToolbox/AudioToolbox.h>
 
 #include "../types.h"
 #include "global.h"
 #include "pcm8.h"
+#include "biquad.h"
 
 namespace X68K
 {
@@ -27,7 +29,8 @@ namespace X68K
 		void Abort();
 
 		void Mix(Sample *buffer, int nsamples);
-		void SetVolume(int db);
+        void MixRAW(Sample *buffer, int nsamples);
+        void SetVolume(int db);
 		void SetChannelMask(uint mask);
 
 	private:
@@ -35,6 +38,9 @@ namespace X68K
 		uint mMask;
 		int mVolume;
 		int mSampleRate;
+        biquad* bq0;
+        biquad* bq1;
+//        AudioConverterRef ACRef;
 
 		sint32 OutInpAdpcm[2];
 		sint32 OutInpAdpcm_prev[2];
@@ -51,7 +57,7 @@ namespace X68K
 
 		inline void pcmset62500(Sample* buffer, int ndata);
 		inline void pcmset22050(Sample* buffer, int ndata);
-
+        inline void pcmsetRAW(Sample* buffer, int ndata);
 	};
 
 	inline int Max(int x, int y) { return (x > y) ? x : y; }

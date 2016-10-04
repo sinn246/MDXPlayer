@@ -1,265 +1,330 @@
 #include "x68pcm8.h"
 
+
 namespace X68K
 {
+    
+    
+    // ---------------------------------------------------------------------------
+    //	æ§‹ç¯‰
+    //
+    X68PCM8::X68PCM8()
+    {
+        bq0 = bq1 = 0;
+    }
+    
+    // ---------------------------------------------------------------------------
+    //	åˆæœŸåŒ–
+    //
+    bool X68PCM8::Init(uint rate)
+    {
+        mMask = 0;
+        mVolume = 256;
+        for (int i=0; i<PCM8_NCH; ++i) {
+            mPcm8[i].Init(rate);
+        }
+        
+        OutInpAdpcm[0] = OutInpAdpcm[1] =
+        OutInpAdpcm_prev[0] = OutInpAdpcm_prev[1] =
+        OutInpAdpcm_prev2[0] = OutInpAdpcm_prev2[1] =
+        OutOutAdpcm[0] = OutOutAdpcm[1] =
+        OutOutAdpcm_prev[0] = OutOutAdpcm_prev[1] =
+        OutOutAdpcm_prev2[0] = OutOutAdpcm_prev2[1] =
+        0;
+        OutInpOutAdpcm[0] = OutInpOutAdpcm[1] =
+        OutInpOutAdpcm_prev[0] = OutInpOutAdpcm_prev[1] =
+        OutInpOutAdpcm_prev2[0] = OutInpOutAdpcm_prev2[1] =
+        OutOutInpAdpcm[0] = OutOutInpAdpcm[1] =
+        OutOutInpAdpcm_prev[0] = OutOutInpAdpcm_prev[1] =
+        0;
+        
+        if(bq0) free(bq0);
+        bq0 = BiQuad_new(LPF, 0, 15625.0/2.0, rate, 1.0); // 1.0 ã§ã‚ˆã„ã®ã‹ãƒã‚§ãƒƒã‚¯å¿…è¦
+        if(bq1) free(bq1);
+        bq1 = BiQuad_new(LPF, 0, 15625.0/2.0, rate, 1.0); // 1.0 ã§ã‚ˆã„ã®ã‹ãƒã‚§ãƒƒã‚¯å¿…è¦
+        
+#if 0
+        SetRate(rate);
+        AudioStreamBasicDescription inASBD;
+        inASBD.mSampleRate         = 15625;
+        inASBD.mFormatID           = kAudioFormatLinearPCM;
+        inASBD.mFormatFlags        = kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked;
+        inASBD.mFramesPerPacket    = 1;
+        inASBD.mChannelsPerFrame   = 2;
+        inASBD.mBitsPerChannel     = 16;
+        inASBD.mBytesPerPacket     = 4;
+        inASBD.mBytesPerFrame      = 4;
+        inASBD.mReserved           = 0;
 
+        AudioStreamBasicDescription outASBD;
+        outASBD.mSampleRate         = rate;
+        outASBD.mFormatID           = kAudioFormatLinearPCM;
+        outASBD.mFormatFlags        = kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked;
+        outASBD.mFramesPerPacket    = 1;
+        outASBD.mChannelsPerFrame   = 2;
+        outASBD.mBitsPerChannel     = 16;
+        outASBD.mBytesPerPacket     = 4;
+        outASBD.mBytesPerFrame      = 4;
+        outASBD.mReserved           = 0;
+        
+        AudioConverterNew(&inASBD, &outASBD, &ACRef);
+#endif
+        return true;
+    }
+    
+    // ---------------------------------------------------------------------------
+    //	ã‚µãƒ³ãƒ—ãƒ«ãƒ¬ãƒ¼ãƒˆè¨­å®š
+    //
+    bool X68PCM8::SetRate(uint rate)
+    {
+        mSampleRate = rate;
+        
+        return true;
+    }
+    
+    // ---------------------------------------------------------------------------
+    //	ãƒªã‚»ãƒƒãƒˆ
+    //
+    void X68PCM8::Reset()
+    {
+        Init(mSampleRate);
+    }
+    
+    // ---------------------------------------------------------------------------
+    //	ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚»ãƒƒãƒˆ
+    //
+    int X68PCM8::Out(int ch, void *adrs, int mode, int len)
+    {
+        return mPcm8[ch & (PCM8_NCH-1)].Out(adrs, mode, len);
+    }
+    
+    // ---------------------------------------------------------------------------
+    //	ã‚¢ãƒœãƒ¼ãƒˆ
+    //
+    void X68PCM8::Abort()
+    {
+        Reset();
+    }
+    
+    // ---------------------------------------------------------------------------
+    //	ãƒãƒ£ãƒ³ãƒãƒ«ãƒã‚¹ã‚¯ã®è¨­å®š
+    //
+    void X68PCM8::SetChannelMask(uint mask)
+    {
+        mMask = mask;
+    }
+    
+    // ---------------------------------------------------------------------------
+    //	éŸ³é‡è¨­å®š
+    //
+    void X68PCM8::SetVolume(int db)
+    {
+        db = Min(db, 20);
+        if (db > -192)
+            mVolume = int(16384.0 * pow(10, db / 40.0));
+        else
+            mVolume = 0;
+    }
+    
+    
+    // ---------------------------------------------------------------------------
+    //	62500Hzç”¨ADPCMåˆæˆå‡¦ç†
+    //
+    inline void X68PCM8::pcmset62500(Sample* buffer, int ndata) {
+        Sample* limit = buffer + ndata * 2;
+        for (Sample* dest = buffer; dest < limit; dest+=2) {
+            OutInpAdpcm[0] = OutInpAdpcm[1] = 0;
+            
+            for (int ch=0; ch<PCM8_NCH; ++ch) {
+                int pan = mPcm8[ch].GetMode();
+                int o = mPcm8[ch].GetPcm62();
+                if (o != 0x80000000) {
+                    OutInpAdpcm[0] += (-(pan&1)) & o;
+                    OutInpAdpcm[1] += (-((pan>>1)&1)) & o;
+                }
+            }
+            OutInpAdpcm[0] = (OutInpAdpcm[0] * mVolume) >> 8;
+            OutInpAdpcm[1] = (OutInpAdpcm[1] * mVolume) >> 8;
+            
+#define LIMITS ((1<<19)-1)
+            if ((uint32)(OutInpAdpcm[0]+LIMITS) > (uint32)(LIMITS*2)) {
+                if ((sint32)(OutInpAdpcm[0]+LIMITS) >= (sint32)(LIMITS*2)) {
+                    OutInpAdpcm[0] = LIMITS;
+                } else {
+                    OutInpAdpcm[0] = -LIMITS;
+                }
+            }
+            if ((uint32)(OutInpAdpcm[1]+LIMITS) > (uint32)(LIMITS*2)) {
+                if ((sint32)(OutInpAdpcm[1]+LIMITS) >= (sint32)(LIMITS*2)) {
+                    OutInpAdpcm[1] = LIMITS;
+                } else {
+                    OutInpAdpcm[1] = -LIMITS;
+                }
+            }
+#undef LIMITS
+            OutInpAdpcm[0] *= 26;
+            OutInpAdpcm[1] *= 26;
+            
+            OutInpOutAdpcm[0] = (
+                                 OutInpAdpcm[0] + OutInpAdpcm_prev[0] +
+                                 OutInpAdpcm_prev[0] + OutInpAdpcm_prev2[0] -
+                                 OutInpOutAdpcm_prev[0]*(-1537) - OutInpOutAdpcm_prev2[0]*617
+                                 ) >> 10;
+            OutInpOutAdpcm[1] = (
+                                 OutInpAdpcm[1] + OutInpAdpcm_prev[1] +
+                                 OutInpAdpcm_prev[1] + OutInpAdpcm_prev2[1] -
+                                 OutInpOutAdpcm_prev[1]*(-1537) - OutInpOutAdpcm_prev2[1]*617
+                                 ) >> 10;
+            
+            OutInpAdpcm_prev2[0] = OutInpAdpcm_prev[0];
+            OutInpAdpcm_prev2[1] = OutInpAdpcm_prev[1];
+            OutInpAdpcm_prev[0] = OutInpAdpcm[0];
+            OutInpAdpcm_prev[1] = OutInpAdpcm[1];
+            OutInpOutAdpcm_prev2[0] = OutInpOutAdpcm_prev[0];
+            OutInpOutAdpcm_prev2[1] = OutInpOutAdpcm_prev[1];
+            OutInpOutAdpcm_prev[0] = OutInpOutAdpcm[0];
+            OutInpOutAdpcm_prev[1] = OutInpOutAdpcm[1];
+            
+            OutOutInpAdpcm[0] = OutInpOutAdpcm[0] * (356);
+            OutOutInpAdpcm[1] = OutInpOutAdpcm[1] * (356);
+            OutOutAdpcm[0] = (
+                              OutOutInpAdpcm[0] + OutOutInpAdpcm_prev[0] -
+                              OutOutAdpcm_prev[0]*(-312)
+                              ) >> 10;
+            OutOutAdpcm[1] = (
+                              OutOutInpAdpcm[1] + OutOutInpAdpcm_prev[1] -
+                              OutOutAdpcm_prev[1]*(-312)
+                              ) >> 10;
+            
+            OutOutInpAdpcm_prev[0] = OutOutInpAdpcm[0];
+            OutOutInpAdpcm_prev[1] = OutOutInpAdpcm[1];
+            OutOutAdpcm_prev[0] = OutOutAdpcm[0];
+            OutOutAdpcm_prev[1] = OutOutAdpcm[1];
+            
+            // -2048*16ã€œ+2048*16 OPMã¨ADPCMã®éŸ³é‡ãƒãƒ©ãƒ³ã‚¹èª¿æ•´
+            StoreSample(dest[0], (OutOutAdpcm[0]*506) >> (4+9));
+            StoreSample(dest[1], (OutOutAdpcm[1]*506) >> (4+9));
+        }
+    }
+    
+    
+    // ---------------------------------------------------------------------------
+    //	62500Hzç”¨ADPCMåˆæˆå‡¦ç†(RAW)
+    //
+    inline void X68PCM8::pcmsetRAW(Sample* buffer, int ndata) {
+        Sample* limit = buffer + ndata * 2;
+        for (Sample* dest = buffer; dest < limit; dest+=2) {
+            OutInpAdpcm[0] = OutInpAdpcm[1] = 0;
+            
+            for (int ch=0; ch<PCM8_NCH; ++ch) {
+                int pan = mPcm8[ch].GetMode();
+                int o = mPcm8[ch].GetPcmRAW();
+                if (o != 0x80000000) {
+                    OutInpAdpcm[0] += (-(pan&1)) & o;
+                    OutInpAdpcm[1] += (-((pan>>1)&1)) & o;
+                }
+            }
+            OutInpAdpcm[0] =  (typeof(OutInpAdpcm[0])) BiQuad(OutInpAdpcm[0], bq0);
+            OutInpAdpcm[1] =  (typeof(OutInpAdpcm[1])) BiQuad(OutInpAdpcm[1], bq1);
+            
+            OutInpAdpcm[0] = (OutInpAdpcm[0] * mVolume) >> 8;
+            OutInpAdpcm[1] = (OutInpAdpcm[1] * mVolume) >> 8;
+            
+            // -2048*16ã€œ+2048*16 OPMã¨ADPCMã®éŸ³é‡ãƒãƒ©ãƒ³ã‚¹èª¿æ•´
+            StoreSample(dest[0], (OutInpAdpcm[0]*16));  //?
+            StoreSample(dest[1], (OutInpAdpcm[1]*16));  //?
+        }
+    }
+    
+    // ---------------------------------------------------------------------------
+    //	22050Hzç”¨ADPCMåˆæˆå‡¦ç†
+    //
+    inline void X68PCM8::pcmset22050(Sample* buffer, int ndata) {
+        Sample* limit = buffer + ndata * 2;
+        for (Sample* dest = buffer; dest < limit; dest+=2) {
+            
+            static int rate=0,rate2=0;
+            rate2 -= 15625;
+            if (rate2 < 0) {
+                rate2 += 22050;
+                OutInpAdpcm[0] = OutInpAdpcm[1] = 0;
+                
+                for (int ch=0; ch<PCM8_NCH; ++ch) {
+                    int pan = mPcm8[ch].GetMode();
+                    int o = mPcm8[ch].GetPcm22();
+                    if (o != 0x80000000) {
+                        OutInpAdpcm[0] += (-(pan&1)) & o;
+                        OutInpAdpcm[1] += (-((pan>>1)&1)) & o;
+                    }
+                }
+                OutInpAdpcm[0] = (OutInpAdpcm[0] * mVolume) >> 8;
+                OutInpAdpcm[1] = (OutInpAdpcm[1] * mVolume) >> 8;
+                
+#define LIMITS ((1<<19)-1)
+                if ((uint32)(OutInpAdpcm[0]+LIMITS) > (uint32)(LIMITS*2)) {
+                    if ((sint32)(OutInpAdpcm[0]+LIMITS) >= (sint32)(LIMITS*2)) {
+                        OutInpAdpcm[0] = LIMITS;
+                    } else {
+                        OutInpAdpcm[0] = -LIMITS;
+                    }
+                }
+                if ((uint32)(OutInpAdpcm[1]+LIMITS) > (uint32)(LIMITS*2)) {
+                    if ((sint32)(OutInpAdpcm[1]+LIMITS) >= (sint32)(LIMITS*2)) {
+                        OutInpAdpcm[1] = LIMITS;
+                    } else {
+                        OutInpAdpcm[1] = -LIMITS;
+                    }
+                }
+#undef LIMITS
+                
+                OutInpAdpcm[0] *= 40;
+                OutInpAdpcm[1] *= 40;
+            }
+            OutOutAdpcm[0] = (
+                              OutInpAdpcm[0] + OutInpAdpcm_prev[0] +
+                              OutInpAdpcm_prev[0] + OutInpAdpcm_prev2[0] -
+                              OutOutAdpcm_prev[0]*(-157) - OutOutAdpcm_prev2[0]*61
+                              ) >> 8;
+            OutOutAdpcm[1] = (
+                              OutInpAdpcm[1] + OutInpAdpcm_prev[1] +
+                              OutInpAdpcm_prev[1] + OutInpAdpcm_prev2[1] -
+                              OutOutAdpcm_prev[1]*(-157) - OutOutAdpcm_prev2[1]*61
+                              ) >> 8;
+            
+            OutInpAdpcm_prev2[0] = OutInpAdpcm_prev[0];
+            OutInpAdpcm_prev2[1] = OutInpAdpcm_prev[1];
+            OutInpAdpcm_prev[0] = OutInpAdpcm[0];
+            OutInpAdpcm_prev[1] = OutInpAdpcm[1];
+            OutInpOutAdpcm_prev2[0] = OutInpOutAdpcm_prev[0];
+            OutInpOutAdpcm_prev2[1] = OutInpOutAdpcm_prev[1];
+            OutInpOutAdpcm_prev[0] = OutInpOutAdpcm[0];
+            OutInpOutAdpcm_prev[1] = OutInpOutAdpcm[1];
+            
+            StoreSample(dest[0], (OutOutAdpcm[0]>>4));
+            StoreSample(dest[1], (OutOutAdpcm[1]>>4));
+        }
+    }
+    
+    
+    // ---------------------------------------------------------------------------
+    //	åˆæˆ (stereo)
+    //
+    void X68PCM8::Mix(Sample* buffer, int nsamples)
+    {
+        if (mSampleRate == 22050) {
+            pcmset22050(buffer, nsamples);
+        } else {
+            pcmset62500(buffer, nsamples);
+        }
+    }
 
-// ---------------------------------------------------------------------------
-//	\’z
-//
-X68PCM8::X68PCM8()
-{
-}
+    void X68PCM8::MixRAW(Sample* buffer, int nsamples)
+    {
+        pcmsetRAW(buffer, nsamples);
+        
+    }
 
-// ---------------------------------------------------------------------------
-//	‰Šú‰»
-//
-bool X68PCM8::Init(uint rate)
-{
-	mMask = 0;
-	mVolume = 256;
-	for (int i=0; i<PCM8_NCH; ++i) {
-		mPcm8[i].Init();
-	}
-
-	OutInpAdpcm[0] = OutInpAdpcm[1] =
-	  OutInpAdpcm_prev[0] = OutInpAdpcm_prev[1] =
-	  OutInpAdpcm_prev2[0] = OutInpAdpcm_prev2[1] =
-	  OutOutAdpcm[0] = OutOutAdpcm[1] =
-	  OutOutAdpcm_prev[0] = OutOutAdpcm_prev[1] =
-	  OutOutAdpcm_prev2[0] = OutOutAdpcm_prev2[1] =
-	  0;
-	OutInpOutAdpcm[0] = OutInpOutAdpcm[1] =
-	  OutInpOutAdpcm_prev[0] = OutInpOutAdpcm_prev[1] =
-	  OutInpOutAdpcm_prev2[0] = OutInpOutAdpcm_prev2[1] =
-	  OutOutInpAdpcm[0] = OutOutInpAdpcm[1] =
-	  OutOutInpAdpcm_prev[0] = OutOutInpAdpcm_prev[1] =
-	  0;
-
-	SetRate(rate);
-
-	return true;
-}
-
-// ---------------------------------------------------------------------------
-//	ƒTƒ“ƒvƒ‹ƒŒ[ƒgİ’è
-//
-bool X68PCM8::SetRate(uint rate)
-{
-	mSampleRate = rate;
-
-	return true;
-}
-
-// ---------------------------------------------------------------------------
-//	ƒŠƒZƒbƒg
-//
-void X68PCM8::Reset()
-{
-	Init(mSampleRate);
-}
-
-// ---------------------------------------------------------------------------
-//	ƒpƒ‰ƒ[ƒ^ƒZƒbƒg
-//
-int X68PCM8::Out(int ch, void *adrs, int mode, int len)
-{
-	return mPcm8[ch & (PCM8_NCH-1)].Out(adrs, mode, len);
-}
-
-// ---------------------------------------------------------------------------
-//	ƒAƒ{[ƒg
-//
-void X68PCM8::Abort()
-{
-	Reset();
-}
-
-// ---------------------------------------------------------------------------
-//	ƒ`ƒƒƒ“ƒlƒ‹ƒ}ƒXƒN‚Ìİ’è
-//
-void X68PCM8::SetChannelMask(uint mask)
-{
-	mMask = mask;
-}
-
-// ---------------------------------------------------------------------------
-//	‰¹—Êİ’è
-//
-void X68PCM8::SetVolume(int db)
-{
-	db = Min(db, 20);
-	if (db > -192)
-		mVolume = int(16384.0 * pow(10, db / 40.0));
-	else
-		mVolume = 0;
-}
-
-
-// ---------------------------------------------------------------------------
-//	62500Hz—pADPCM‡¬ˆ—
-//
-inline void X68PCM8::pcmset62500(Sample* buffer, int ndata) {
-	Sample* limit = buffer + ndata * 2;
-	for (Sample* dest = buffer; dest < limit; dest+=2) {
-		OutInpAdpcm[0] = OutInpAdpcm[1] = 0;
-
-		for (int ch=0; ch<PCM8_NCH; ++ch) {
-			int pan = mPcm8[ch].GetMode();
-			int o = mPcm8[ch].GetPcm62();
-			if (o != 0x80000000) {
-				OutInpAdpcm[0] += (-(pan&1)) & o;
-				OutInpAdpcm[1] += (-((pan>>1)&1)) & o;
-			}
-		}
-		OutInpAdpcm[0] = (OutInpAdpcm[0] * mVolume) >> 8;
-		OutInpAdpcm[1] = (OutInpAdpcm[1] * mVolume) >> 8;
-
-		#define LIMITS ((1<<19)-1)
-		if ((uint32)(OutInpAdpcm[0]+LIMITS) > (uint32)(LIMITS*2)) {
-			if ((sint32)(OutInpAdpcm[0]+LIMITS) >= (sint32)(LIMITS*2)) {
-				OutInpAdpcm[0] = LIMITS;
-			} else {
-				OutInpAdpcm[0] = -LIMITS;
-			}
-		}
-		if ((uint32)(OutInpAdpcm[1]+LIMITS) > (uint32)(LIMITS*2)) {
-			if ((sint32)(OutInpAdpcm[1]+LIMITS) >= (sint32)(LIMITS*2)) {
-				OutInpAdpcm[1] = LIMITS;
-			} else {
-				OutInpAdpcm[1] = -LIMITS;
-			}
-		}
-		#undef LIMITS
-		OutInpAdpcm[0] *= 26;
-		OutInpAdpcm[1] *= 26;
-
-		OutInpOutAdpcm[0] = (
-		  OutInpAdpcm[0] + OutInpAdpcm_prev[0] +
-		  OutInpAdpcm_prev[0] + OutInpAdpcm_prev2[0] -
-		  OutInpOutAdpcm_prev[0]*(-1537) - OutInpOutAdpcm_prev2[0]*617
-		 ) >> 10;
-		OutInpOutAdpcm[1] = (
-		  OutInpAdpcm[1] + OutInpAdpcm_prev[1] +
-		  OutInpAdpcm_prev[1] + OutInpAdpcm_prev2[1] -
-		  OutInpOutAdpcm_prev[1]*(-1537) - OutInpOutAdpcm_prev2[1]*617
-		) >> 10;
-
-		OutInpAdpcm_prev2[0] = OutInpAdpcm_prev[0];
-		OutInpAdpcm_prev2[1] = OutInpAdpcm_prev[1];
-		OutInpAdpcm_prev[0] = OutInpAdpcm[0];
-		OutInpAdpcm_prev[1] = OutInpAdpcm[1];
-		OutInpOutAdpcm_prev2[0] = OutInpOutAdpcm_prev[0];
-		OutInpOutAdpcm_prev2[1] = OutInpOutAdpcm_prev[1];
-		OutInpOutAdpcm_prev[0] = OutInpOutAdpcm[0];
-		OutInpOutAdpcm_prev[1] = OutInpOutAdpcm[1];
-
-		OutOutInpAdpcm[0] = OutInpOutAdpcm[0] * (356);
-		OutOutInpAdpcm[1] = OutInpOutAdpcm[1] * (356);
-		OutOutAdpcm[0] = (
-		  OutOutInpAdpcm[0] + OutOutInpAdpcm_prev[0] -
-		  OutOutAdpcm_prev[0]*(-312)
-		) >> 10;
-		OutOutAdpcm[1] = (
-		  OutOutInpAdpcm[1] + OutOutInpAdpcm_prev[1] -
-		  OutOutAdpcm_prev[1]*(-312)
-		) >> 10;
-
-		OutOutInpAdpcm_prev[0] = OutOutInpAdpcm[0];
-		OutOutInpAdpcm_prev[1] = OutOutInpAdpcm[1];
-		OutOutAdpcm_prev[0] = OutOutAdpcm[0];
-		OutOutAdpcm_prev[1] = OutOutAdpcm[1];
-
-		// -2048*16`+2048*16 OPM‚ÆADPCM‚Ì‰¹—Êƒoƒ‰ƒ“ƒX’²®
-		StoreSample(dest[0], (OutOutAdpcm[0]*506) >> (4+9));
-		StoreSample(dest[1], (OutOutAdpcm[1]*506) >> (4+9));
-	}
-}
-
-
-// ---------------------------------------------------------------------------
-//	22050Hz—pADPCM‡¬ˆ—
-//
-inline void X68PCM8::pcmset22050(Sample* buffer, int ndata) {
-	Sample* limit = buffer + ndata * 2;
-	for (Sample* dest = buffer; dest < limit; dest+=2) {
-
-		static int rate=0,rate2=0;
-		rate2 -= 15625;
-		if (rate2 < 0) {
-			rate2 += 22050;
-			OutInpAdpcm[0] = OutInpAdpcm[1] = 0;
-
-			for (int ch=0; ch<PCM8_NCH; ++ch) {
-				int pan = mPcm8[ch].GetMode();
-				int o = mPcm8[ch].GetPcm22();
-				if (o != 0x80000000) {
-					OutInpAdpcm[0] += (-(pan&1)) & o;
-					OutInpAdpcm[1] += (-((pan>>1)&1)) & o;
-				}
-			}
-			OutInpAdpcm[0] = (OutInpAdpcm[0] * mVolume) >> 8;
-			OutInpAdpcm[1] = (OutInpAdpcm[1] * mVolume) >> 8;
-
-			#define LIMITS ((1<<19)-1)
-			if ((uint32)(OutInpAdpcm[0]+LIMITS) > (uint32)(LIMITS*2)) {
-				if ((sint32)(OutInpAdpcm[0]+LIMITS) >= (sint32)(LIMITS*2)) {
-					OutInpAdpcm[0] = LIMITS;
-				} else {
-					OutInpAdpcm[0] = -LIMITS;
-				}
-			}
-			if ((uint32)(OutInpAdpcm[1]+LIMITS) > (uint32)(LIMITS*2)) {
-				if ((sint32)(OutInpAdpcm[1]+LIMITS) >= (sint32)(LIMITS*2)) {
-					OutInpAdpcm[1] = LIMITS;
-				} else {
-					OutInpAdpcm[1] = -LIMITS;
-				}
-			}
-			#undef LIMITS
-
-			OutInpAdpcm[0] *= 40;
-			OutInpAdpcm[1] *= 40;
-		}
-		OutOutAdpcm[0] = (
-		  OutInpAdpcm[0] + OutInpAdpcm_prev[0] +
-		  OutInpAdpcm_prev[0] + OutInpAdpcm_prev2[0] -
-		  OutOutAdpcm_prev[0]*(-157) - OutOutAdpcm_prev2[0]*61
-		 ) >> 8;
-		OutOutAdpcm[1] = (
-		  OutInpAdpcm[1] + OutInpAdpcm_prev[1] +
-		  OutInpAdpcm_prev[1] + OutInpAdpcm_prev2[1] -
-		  OutOutAdpcm_prev[1]*(-157) - OutOutAdpcm_prev2[1]*61
-		) >> 8;
-
-		OutInpAdpcm_prev2[0] = OutInpAdpcm_prev[0];
-		OutInpAdpcm_prev2[1] = OutInpAdpcm_prev[1];
-		OutInpAdpcm_prev[0] = OutInpAdpcm[0];
-		OutInpAdpcm_prev[1] = OutInpAdpcm[1];
-		OutInpOutAdpcm_prev2[0] = OutInpOutAdpcm_prev[0];
-		OutInpOutAdpcm_prev2[1] = OutInpOutAdpcm_prev[1];
-		OutInpOutAdpcm_prev[0] = OutInpOutAdpcm[0];
-		OutInpOutAdpcm_prev[1] = OutInpOutAdpcm[1];
-
-		StoreSample(dest[0], (OutOutAdpcm[0]>>4));
-		StoreSample(dest[1], (OutOutAdpcm[1]>>4));
-	}
-}
-
-
-// ---------------------------------------------------------------------------
-//	‡¬ (stereo)
-//
-void X68PCM8::Mix(Sample* buffer, int nsamples)
-{
-	if (mSampleRate == 22050) {
-		pcmset22050(buffer, nsamples);
-	} else {
-		pcmset62500(buffer, nsamples);
-	}
-}
-
-// ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
 }  // namespace X68K
 
 // [EOF]

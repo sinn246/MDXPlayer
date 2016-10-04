@@ -259,38 +259,38 @@ int MXDRVG_Start(
 	switch (samprate) {
 	  case 22050:
 		G.SAMPRATE = 22050;
-		G.INNERSAMPRATE = 22050;
+//		G.INNERSAMPRATE = 22050;
 		G.OPMFILTER = 0;
 		break;
 
 	  case 44100:
 		G.SAMPRATE = 44100;
-		G.INNERSAMPRATE = 62500;
+//		G.INNERSAMPRATE = 62500;
 		G.OPMFILTER = (filtermode&2) ? 1 : 0;
 		break;
 
 	  case 48000:
 		G.SAMPRATE = 48000;
-		G.INNERSAMPRATE = 62500;
+//		G.INNERSAMPRATE = 62500;
 		G.OPMFILTER = (filtermode&2) ? 1 : 0;
 		break;
 
 	  case 62500:
 		G.SAMPRATE = 62500;
-		G.INNERSAMPRATE = 62500;
+//		G.INNERSAMPRATE = 62500;
 		G.OPMFILTER = (filtermode&2) ? 1 : 0;
 		break;
 
 	  default:
 		G.SAMPRATE = 0;
-		G.INNERSAMPRATE = 0;
+//		G.INNERSAMPRATE = 0;
 		G.OPMFILTER = 0;
 		return -1;
 	}
 
-	OPM.Init(4000000, G.INNERSAMPRATE, (G.OPMFILTER != 0));
-	PCM8.Init(G.INNERSAMPRATE);
-	DS.Init(G.INNERSAMPRATE, G.SAMPRATE, ((filtermode&1) == 0));
+	OPM.Init(4000000, G.SAMPRATE, (G.OPMFILTER != 0));
+	PCM8.Init(G.SAMPRATE);
+//	DS.Init(G.INNERSAMPRATE, G.SAMPRATE, ((filtermode&1) == 0));
 
 	OPM.SetVolume(-12);
 	PCM8.SetVolume(0);
@@ -401,11 +401,71 @@ int MXDRVG_GetPCM(
 
 /***************************************************************/
 
+static Sample _innerbuf[8192];
+static Sample _inner156buf[8192];
+// by sinn246
+int MXDRVG_GetPCM_AppleResampler(
+                  SWORD *buf,
+                  int len
+                  ) {
+    SLONG rest_us;
+    static Sample *innerbuf = NULL;
+    static ULONG innerbuflen = 0;
+    int rest_len = len;
+    Sample *outerbuf = (Sample *)buf;
+    
+    if (len > 1024) return (0);
+    
+    rest_us = (SLONG)(len*1000000)/G.SAMPRATE;
+    rest_len = len;
+    while (rest_len > 0) {
+        ULONG create_len = (ULONG)rest_len;
+        ULONG event_us = OPM.GetNextEvent();
+        if (event_us == 0) {
+            //
+        } else if ((SLONG)event_us < rest_us) {
+            create_len = G.SAMPRATE*event_us/1000000;
+            if (create_len == 0) {
+                create_len = 1;
+            }
+        }
+        if (create_len == 0) break;
+        memset(innerbuf, 0, create_len*sizeof(Sample)*2);
+        OPM.Mix(innerbuf, create_len);
+        PCM8.MixRAW(innerbuf, create_len);
+        if (TotalVolume != 256) {
+            for (ULONG j=0; j<create_len; j++) {
+                int v0 = (innerbuf[j*2+0] * TotalVolume) >> 8;
+                
+                int v1 = (innerbuf[j*2+1] * TotalVolume) >> 8;
+                if (v0 < -32768) v0 = -32768;
+                if (v1 < -32768) v1 = -32768;
+                if (v0 > 32767) v0 = 32767;
+                if (v1 > 32767) v1 = 32767;
+                innerbuf[j*2+0] = v0;
+                innerbuf[j*2+1] = v1;
+            }
+        }
+//            DS.DownSample(innerbuf, create_len, outerbuf);
+        outerbuf += create_len*2;
+        G.PLAYSAMPLES += create_len;
+        ULONG use_us = (create_len*1000000)/G.SAMPRATE;
+        OPM.Count(use_us);
+        rest_us -= use_us;
+        rest_len -= create_len;
+    }
+    
+    return (len);
+}
+
+/***************************************************************/
+
+
 MXDRVG_EXPORT
 void MXDRVG_TotalVolume(
-	int vol
-) {
-	TotalVolume = vol;
+                        int vol
+                        ) {
+    TotalVolume = vol;
 }
 
 /***************************************************************/

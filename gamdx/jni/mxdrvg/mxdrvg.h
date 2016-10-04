@@ -102,7 +102,7 @@ typedef struct tagMXDRVG_WORK_GLOBAL {
 	UBYTE STOPMUSICTIMER;  // 演奏時間タイマー停止
 	ULONG MEASURETIMELIMIT; // 演奏時間計測中止時間
 	ULONG SAMPRATE; // サンプリングレート
-	ULONG INNERSAMPRATE; // サンプリングレート
+//	ULONG INNERSAMPRATE; // サンプリングレート
 	UBYTE OPMFILTER; // OPMの高域フィルタ
 	ULONG PLAYSAMPLES; // 生成したサンプル数
 } MXDRVG_WORK_GLOBAL;
