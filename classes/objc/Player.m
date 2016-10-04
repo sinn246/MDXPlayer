@@ -65,8 +65,7 @@ static void MAudioQueueOutputCallback(void *inUserData, AudioQueueRef inAQ, Audi
 #define S2UTBL0_SIZE (256*sizeof(UInt16))
 #define S2UTBL1_SIZE (60*188*sizeof(UInt32))
 
-static SWORD intermediateBuffer[INBLKSIZE*2*2];//バッファオーバーラン対策に倍のサイズで中間バッファを作っておく
-static pthread_mutex_t mxdrv_mutex;
+static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更すると内部が矛盾するので排他利用にする
 
 +(void)prepareMask:(CALayer*)layer {
     CGImageRef spemask = makeSpeanaMaskBitmap();
@@ -322,14 +321,15 @@ static pthread_mutex_t mxdrv_mutex;
     if(_speedup) sptime = 10;
     
     if(!playend && pthread_mutex_trylock(&mxdrv_mutex)==0){
+        // trylock使っているのは、他でロックされているときに待っているとコールバックがタイムオーバーするかもしれないから
+        // 無音になるのでそれはそれで困ると思うがひどいエラーにはならない
         for(int spcnt = 0; spcnt < sptime; spcnt++)	// ホントはこのループはいらないの、スピードアップ用
         {
             SWORD *ptr = (SWORD*)inBuffer->mAudioData;
             for(int i = 0 ; i < cnt ; i++)
             {
                 if(!MXDRVG_GetTerminated()){
-                    MXDRVG_GetPCM(intermediateBuffer , INBLKSIZE); //GetPCMがオーバーランすることがあるので中間バッファを使う
-                    memcpy(ptr, intermediateBuffer, INBLKSIZE*2*2);//オーバーランした分はどうなるんでしょう？その分のデータは今は捨てていることになる?
+                    MXDRVG_GetPCM(ptr , INBLKSIZE); //GetPCMのオーバーランは解消しました
                 }else{
                     memset(ptr,0, INBLKSIZE*2*2);//ここでゼロクリアしておかないと雑音がなります
                 }
@@ -367,7 +367,7 @@ static pthread_mutex_t mxdrv_mutex;
         //    }
         
         pthread_mutex_unlock(&mxdrv_mutex);
-    }else{//playend=YES
+    }else{//playend=YES or Mutex locked elsewhere
         memset(inBuffer->mAudioData, 0, INBLKSIZE * cnt * 4);
     }
     

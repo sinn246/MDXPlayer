@@ -11,7 +11,7 @@ class Pcm8 {
 	int Scale;  // 
 	int Pcm;  // 16bit PCM Data
 	int Pcm16Prev;  // 16bit,8bitPCMの1つ前のデータ
-    int InpPcm;//,InpPcm_prev,OutPcm;  // HPF用 16bit PCM Data
+    int InpPcm;
 	int AdpcmRate;  // 187500(15625*12), 125000(10416.66*12), 93750(7812.5*12), 62500(5208.33*12), 46875(3906.25*12), ...
     int OutRate;
 	int RateCounter;

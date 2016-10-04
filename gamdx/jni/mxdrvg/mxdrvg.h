@@ -6,6 +6,9 @@
 
 #include "mxdrvg_depend.h"
 
+#define MXDRVG_MAX_SAMPLES 1024
+// by s246
+
 typedef struct tagMXDRVG_WORK_CH {
 	UBYTE volatile *S0000;	// Ptr
 	UBYTE S0004_b;	// PCM bank

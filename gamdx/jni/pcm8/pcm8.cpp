@@ -212,7 +212,7 @@ namespace X68K
             }
             RateCounter += OutRate;
         }
-        return (InpPcm*Volume)>>12;
+        return (InpPcm*Volume)>>13;
     }
     
     
