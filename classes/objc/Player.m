@@ -221,6 +221,12 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
 
 -(void)setSamplingRate:(NSInteger)samplingRate	// 44100 22050 48000 62500
 {
+    //コールバック実行中に呼ばれると落ちるのでmutex確認する
+    while(pthread_mutex_trylock(&mxdrv_mutex)!=0){
+        //        NSLog(@"mutex lock failed in setSamplingRate");
+        [NSThread sleepForTimeInterval:0.01];
+    }
+
     files = nil;
     MXDRVG_End();
     AudioQueuePause(audioQueue);
@@ -233,6 +239,8 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
     
     [[NSUserDefaults standardUserDefaults] setInteger:_samplingRate forKey:@"samplingRate"];
     [[NSUserDefaults standardUserDefaults] synchronize];
+    
+    pthread_mutex_unlock(&mxdrv_mutex);
 }
 
 -(void)setLoopCount:(NSInteger)loopCount

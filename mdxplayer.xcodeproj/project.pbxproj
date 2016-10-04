@@ -405,7 +405,7 @@
 				ORGANIZATIONNAME = asada;
 				TargetAttributes = {
 					C32DD92B170C610900D11883 = {
-						DevelopmentTeam = 5E2LE3SXM6;
+						DevelopmentTeam = 9Y957964D6;
 						SystemCapabilities = {
 							com.apple.Keychain = {
 								enabled = 1;
@@ -667,6 +667,7 @@
 				CODE_SIGN_ENTITLEMENTS = resources/mdxplayer.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				DEVELOPMENT_TEAM = 9Y957964D6;
 				ENABLE_BITCODE = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "resources/mdxplayer-Prefix.pch";
@@ -694,6 +695,7 @@
 				CODE_SIGN_ENTITLEMENTS = resources/mdxplayer.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				DEVELOPMENT_TEAM = 9Y957964D6;
 				ENABLE_BITCODE = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "resources/mdxplayer-Prefix.pch";
