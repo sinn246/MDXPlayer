@@ -19,8 +19,8 @@ namespace X68K
 	{
 	public:
 		X68PCM8();
-		~X68PCM8() {}
-
+        ~X68PCM8();
+        
 		bool Init(uint rate);
 		bool SetRate(uint rate);
 		void Reset();
@@ -29,7 +29,7 @@ namespace X68K
 		void Abort();
 
 		void Mix(Sample *buffer, int nsamples);
-        void MixRAW(Sample *buffer, int nsamples);
+        void MixRAW(Sample *buffer, int nsamples,float volume);
         void SetVolume(int db);
 		void SetChannelMask(uint mask);
 
@@ -41,7 +41,7 @@ namespace X68K
         biquad* bq0;
         biquad* bq1;
 
-        inline void pcmsetRAW(Sample* buffer, int ndata);
+        inline void pcmsetRAW(Sample* buffer, int ndata, float volume);
 	};
 
 	inline int Max(int x, int y) { return (x > y) ? x : y; }

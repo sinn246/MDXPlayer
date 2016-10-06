@@ -13,6 +13,12 @@ namespace X68K
         bq0 = bq1 = 0;
     }
     
+    X68PCM8::~X68PCM8()
+    {
+        if(bq0) free(bq0);
+        if(bq1) free(bq1);
+    }
+ 
     // ---------------------------------------------------------------------------
     //	初期化
     //
@@ -96,7 +102,7 @@ namespace X68K
     // ---------------------------------------------------------------------------
     //	ADPCM合成処理(RAW)
     //
-    inline void X68PCM8::pcmsetRAW(Sample* buffer, int ndata) {
+    inline void X68PCM8::pcmsetRAW(Sample* buffer, int ndata, float volume) {
         Sample* limit = buffer + ndata * 2;
         for (Sample* dest = buffer; dest < limit; dest+=2) {
             Sample Out0 = 0,Out1 = 0;
@@ -105,8 +111,8 @@ namespace X68K
                 int pan = mPcm8[ch].GetMode();
                 int o = mPcm8[ch].GetPcmRAW();
                 if (o != 0x80000000) {
-                    Out0 += (-(pan&1)) & o;
-                    Out1 += (-((pan>>1)&1)) & o;
+                    if(pan&1) Out0 += o;
+                    if(pan&2) Out1 += o;
                 }
             }
             Out0 =  (Sample) BiQuad(Out0, bq0);
@@ -116,8 +122,8 @@ namespace X68K
             Out1 = (Out1 * mVolume) >> 8;
             
             // -2048*16〜+2048*16 OPMとADPCMの音量バランス調整
-            StoreSample(dest[0], (Out0*16));  //?
-            StoreSample(dest[1], (Out1*16));  //?
+            dest[0] += Out0 * volume;  //?
+            dest[1] += Out1 * volume;  //?
         }
     }
     
@@ -130,10 +136,9 @@ namespace X68K
     {
     }
 
-    void X68PCM8::MixRAW(Sample* buffer, int nsamples)
+    void X68PCM8::MixRAW(Sample* buffer, int nsamples, float volume)
     {
-        pcmsetRAW(buffer, nsamples);
-        
+        pcmsetRAW(buffer, nsamples, volume);
     }
 
     // ---------------------------------------------------------------------------

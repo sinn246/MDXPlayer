@@ -114,7 +114,7 @@ namespace X68K
     
     
     // adpcmを入力して InpPcm の値を変化させる
-    // -2047<<(4+4) <= InpPcm <= +2047<<(4+4)
+    // -2047 <= InpPcm <= +2047
     void Pcm8::adpcm2pcm(unsigned char adpcm) {
         int dltL;
         dltL = dltLTBL[Scale];
@@ -131,7 +131,7 @@ namespace X68K
             }
         }
         
-        InpPcm = (Pcm&(int)0xFFFFFFFC)<<(4+4);
+        InpPcm = (Pcm&(int)0xFFFFFFFC);
         
         Scale += DCT[adpcm];
         if ((unsigned int)Scale > (unsigned int)48) {
@@ -145,7 +145,7 @@ namespace X68K
     
     
     // pcm16を入力して InpPcm の値を変化させる
-    // -2047<<(4+4) <= InpPcm <= +2047<<(4+4)
+    // -2047 <= InpPcm <= +2047
     void Pcm8::pcm16_2pcm(int pcm16) {
         Pcm += pcm16-Pcm16Prev;
         Pcm16Prev = pcm16;
@@ -159,7 +159,7 @@ namespace X68K
             }
         }
         
-        InpPcm = (Pcm&(int)0xFFFFFFFC)<<(4+4);
+        InpPcm = (Pcm&(int)0xFFFFFFFC);
     }
     
         
@@ -212,7 +212,7 @@ namespace X68K
             }
             RateCounter += OutRate;
         }
-        return (InpPcm*Volume)>>13;
+        return (InpPcm*Volume);
     }
     
     

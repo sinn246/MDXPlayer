@@ -333,14 +333,12 @@ void MXDRVG_End(
 static Sample _innerbuf[MXDRVG_MAX_SAMPLES*2+10];
 //Dirty, but free from error; by sinn246
 
-int MXDRVG_GetPCM(
-                  SWORD *buf,
-                  int len
-                  ) {
+void MXDRVG_MakePCM(int len)
+{
     SLONG rest_us;
     int rest_len = len;
     
-    if (len > MXDRVG_MAX_SAMPLES) return (0);
+    if (len > MXDRVG_MAX_SAMPLES) return;
     memset(_innerbuf, 0, sizeof(_innerbuf));
     Sample *outbuf = _innerbuf;
     
@@ -359,20 +357,7 @@ int MXDRVG_GetPCM(
         }
         if (create_len == 0) break;
         OPM.Mix(outbuf, create_len);
-        PCM8.MixRAW(outbuf, create_len);
-        if (TotalVolume != 256) {
-            for (ULONG j=0; j<create_len; j++) {
-                int v0 = (outbuf[j*2+0] * TotalVolume) >> 8;
-                
-                int v1 = (outbuf[j*2+1] * TotalVolume) >> 8;
-                if (v0 < -32768) v0 = -32768;
-                if (v1 < -32768) v1 = -32768;
-                if (v0 > 32767) v0 = 32767;
-                if (v1 > 32767) v1 = 32767;
-                outbuf[j*2+0] = v0;
-                outbuf[j*2+1] = v1;
-            }
-        }
+        PCM8.MixRAW(outbuf, create_len, 0.6);  // ここの0.6というのはFMとADPCMのバランスをとるための経験的な数字。
         outbuf += create_len*2;
         G.PLAYSAMPLES += create_len;
         ULONG use_us = (create_len*1000000)/G.SAMPRATE;
@@ -380,7 +365,20 @@ int MXDRVG_GetPCM(
         rest_us -= use_us;
         rest_len -= create_len;
     }
-    memcpy(buf,_innerbuf,len*sizeof(Sample)*2); // これでオーバーフローはない
+}
+
+int MXDRVG_GetPCM(SWORD *buf,int len)
+{
+    MXDRVG_MakePCM(len);
+    for(int i = 0;i<len*2; i++){ // これでオーバーフローはない
+        if(_innerbuf[i] < -32768){
+            buf[i] = -32768;
+        }else if(_innerbuf[i] > 32767) {
+            buf[i] = 32767;
+        }else{
+            buf[i] = _innerbuf[i];
+        }
+    }
     return (len);
 }
 
