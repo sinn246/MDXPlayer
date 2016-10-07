@@ -333,8 +333,9 @@ void MXDRVG_End(
 static Sample _innerbuf[MXDRVG_MAX_SAMPLES*2+10];
 //Dirty, but free from error; by sinn246
 
-void MXDRVG_MakePCM(int len)
-{
+void MXDRVG_MakePCM(
+                    int len
+                    ){
     SLONG rest_us;
     int rest_len = len;
     
@@ -367,10 +368,14 @@ void MXDRVG_MakePCM(int len)
     }
 }
 
-int MXDRVG_GetPCM(SWORD *buf,int len)
-{
+int MXDRVG_GetPCM(
+                  SWORD *buf,
+                  int len
+                  ){
+    // sinn246: overflow対策はここだけに留めるほうがソースはきれいかと・・・
+    // あと、出力をFloatなどにするのも別関数にしたほうが対処しやすい
     MXDRVG_MakePCM(len);
-    for(int i = 0;i<len*2; i++){ // これでオーバーフローはない
+    for(int i = 0;i<len*2; i++){
         if(_innerbuf[i] < -32768){
             buf[i] = -32768;
         }else if(_innerbuf[i] > 32767) {

@@ -102,14 +102,13 @@ namespace X68K
     // ---------------------------------------------------------------------------
     //	ADPCM合成処理(RAW)
     //
-    inline void X68PCM8::pcmsetRAW(Sample* buffer, int ndata, float volume) {
+    void X68PCM8::pcmsetRAW(Sample* buffer, int ndata, float volume) {
         Sample* limit = buffer + ndata * 2;
         for (Sample* dest = buffer; dest < limit; dest+=2) {
             Sample Out0 = 0,Out1 = 0;
-            
             for (int ch=0; ch<PCM8_NCH; ++ch) {
                 int pan = mPcm8[ch].GetMode();
-                int o = mPcm8[ch].GetPcmRAW();
+                Sample o = mPcm8[ch].GetPcmRAW();
                 if (o != 0x80000000) {
                     if(pan&1) Out0 += o;
                     if(pan&2) Out1 += o;
@@ -122,8 +121,8 @@ namespace X68K
             Out1 = (Out1 * mVolume) >> 8;
             
             // -2048*16〜+2048*16 OPMとADPCMの音量バランス調整
-            dest[0] += Out0 * volume;  //?
-            dest[1] += Out1 * volume;  //?
+            dest[0] += Out0 * volume;
+            dest[1] += Out1 * volume;
         }
     }
     

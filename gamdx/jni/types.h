@@ -18,6 +18,6 @@ typedef signed char int8;
 typedef signed short int16;
 typedef signed int int32;
 
-typedef int16 MXDRVG_SAMPLETYPE;				// int16 or int32
+typedef int32 MXDRVG_SAMPLETYPE;				// int16 or int32
 
 #endif // __FMXDRVG_TYPES_H__

@@ -18,7 +18,7 @@ typedef unsigned long UPTRLONG;
 #define TEXT(a) (a)
 typedef char TCHAR;
 
-typedef SWORD MXDRVG_SAMPLETYPE;
+typedef SLONG MXDRVG_SAMPLETYPE;
 typedef MXDRVG_SAMPLETYPE Sample;
 
 #if !defined(MXDRVG_CALLBACK)
