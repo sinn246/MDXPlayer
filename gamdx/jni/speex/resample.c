@@ -59,6 +59,7 @@
 
 #include "speex_MDX.h"
 #define EXPORT
+#ifdef USE_SPEEX
 /// by sinn246
 
 
@@ -1211,3 +1212,5 @@ EXPORT const char *speex_resampler_strerror(int err)
          return "Unknown error. Bad error code or strange vesrsion mismatch.";
    }
 }
+
+#endif // define USE_SPEEX

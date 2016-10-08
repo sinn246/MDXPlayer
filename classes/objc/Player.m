@@ -19,9 +19,10 @@
 #import "lzx042.h"
 
 
-// sinn246:下のコメントを外すと、ダウンサンプリングをspeexライブラリで行う
+// sinn246:speex_MDXでUSE_SPEEXがdefineされていると、ダウンサンプリングをspeexライブラリで行う
 // iOSではスピード落ちるのでおすすめではありません。
-//#define USE_SPEEX
+#include "speex_MDX.h"
+
 
 @interface Player ()
 -(void)callback:(AudioQueueRef)inAQ buffer:(AudioQueueBufferRef)inBuffer;

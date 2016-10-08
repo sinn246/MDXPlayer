@@ -35,7 +35,10 @@
 #include "../fmgen/opm.h"
 #include "../pcm8/x68pcm8.h"
 #include "../speex/speex_MDX.h"
+
+#ifdef USE_SPEEX
 #include "../speex/speex_resampler.h"
+#endif
 
 extern volatile unsigned char OpmReg1B;  // OPM ÉåÉWÉXÉ^ $1B ÇÃì‡óe
 
@@ -418,7 +421,7 @@ int MXDRVG_GetPCMRAW(
 
 //  sinn246:Resamplerを使うバージョン
 // 現在はダウンサンプリングのみ対応　アップサンプリングもすぐにできると思いますが。
-
+#ifdef USE_SPEEX
 static SpeexResamplerState* _Resampler = 0;
 static int16_t _Before_buf[MXDRVG_MAX_SAMPLES*2+10];
 static int16_t _Resample_buf[MXDRVG_MAX_SAMPLES*2+10];
@@ -505,6 +508,22 @@ int MXDRVG_GetPCMResampled(
     }
     return (len);
 }
+#else
+MXDRVG_EXPORT
+int MXDRVG_MakeResampler(
+                         int inRate,
+                         int outRate
+                         ){
+    return -1;
+}
+
+MXDRVG_EXPORT
+void MXDRVG_ClearResampler(
+                           void
+                           ){
+}
+
+#endif // USE_SPEEX
 
 /// 外部から呼ばれるインターフェース
 /// もとのはlenが1024以上でエラーになりましたが、そこは内部で何とかすることにしました。
@@ -514,9 +533,11 @@ int MXDRVG_GetPCM(
                   SWORD *buf,
                   int len
                   ){
+#ifdef USE_SPEEX
     if(_Resampler){
         return MXDRVG_GetPCMResampled(buf, len);
     }
+#endif
     return MXDRVG_GetPCMRAW(buf, len);
 }
 
