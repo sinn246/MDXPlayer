@@ -165,6 +165,17 @@ int MXDRVG_GetPCM(
 );
 
 MXDRVG_EXPORT
+int MXDRVG_MakeResampler(
+    int inRate,
+    int outRate
+);
+
+MXDRVG_EXPORT
+void MXDRVG_ClearResampler(
+    void
+);
+
+MXDRVG_EXPORT
 void MXDRVG_SetData(
 	void *mdx,
 	ULONG mdxsize,

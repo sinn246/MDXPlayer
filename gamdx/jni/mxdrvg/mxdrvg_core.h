@@ -34,6 +34,8 @@
 
 #include "../fmgen/opm.h"
 #include "../pcm8/x68pcm8.h"
+#include "../speex/speex_MDX.h"
+#include "../speex/speex_resampler.h"
 
 extern volatile unsigned char OpmReg1B;  // OPM ÉåÉWÉXÉ^ $1B ÇÃì‡óe
 
@@ -240,7 +242,9 @@ static void L_PAUSE_(
                      );
 
 /***************************************************************/
-
+//// sinn246: INNERSAMPRATE を廃止して、SAMPRATEが内部のサンプルレートを表すように変更
+////          周波数変換が必要ならMDXDRVG_MakeResampler(int inRate, int OutRate)でリサンプラーをかまして
+////          これまで通りGetPCM
 MXDRVG_EXPORT
 int MXDRVG_Start(
                  int samprate,
@@ -329,17 +333,26 @@ void MXDRVG_End(
 
 
 /***************************************************************/
+/// ここからsinn246による改造
 
 static Sample _innerbuf[MXDRVG_MAX_SAMPLES*2+10];
-//Dirty, but free from error; by sinn246
+// sinn246:そもそももとのGetPCMは一回の上限がMXDRVG_MAX_SAMPLESずつに決められていたので、
+// mallocせずにstatic変数にしてしまいました。+10は不慮の？理由でオーバーフローした時の余分
+// Sample はもともと16bitだったがオーバーフローすることがあったので32bitにしました
+// (無理に16bitに収めようとすると途中でデータのロスが生じる可能性あり）
+// すくなくともiOSは24bit audio対応なので・・・
 
-void MXDRVG_MakePCM(
+int MXDRVG_MakePCM(
                     int len
                     ){
+    // sinn246: overflow対策はこの関数より上位に留める
+    // 出力をFloatなどにしたり、Resamplerかますのも別関数にしたほうが対処しやすい
+    // 結果は_innerbufに残っている
+    // 実際に作成されたバイト数を戻す
     SLONG rest_us;
     int rest_len = len;
     
-    if (len > MXDRVG_MAX_SAMPLES) return;
+    if (len > MXDRVG_MAX_SAMPLES) return 0;
     memset(_innerbuf, 0, sizeof(_innerbuf));
     Sample *outbuf = _innerbuf;
     
@@ -349,7 +362,7 @@ void MXDRVG_MakePCM(
         ULONG create_len = (ULONG)rest_len;
         ULONG event_us = OPM.GetNextEvent();
         if (event_us == 0) {
-            //
+            break;
         } else if ((SLONG)event_us < rest_us) {
             create_len = G.SAMPRATE*event_us/1000000;
             if (create_len == 0) {
@@ -358,7 +371,9 @@ void MXDRVG_MakePCM(
         }
         if (create_len == 0) break;
         OPM.Mix(outbuf, create_len);
-        PCM8.MixRAW(outbuf, create_len, 0.6);  // ここの0.6というのはFMとADPCMのバランスをとるための経験的な数字。
+        PCM8.MixRAW(outbuf, create_len, 0.6);
+            // ここの0.6というのはFMとADPCMのバランスをとるための経験的な数字。
+            // ここに埋め込むのでなく他で調整したほうが良いかもしれない
         outbuf += create_len*2;
         G.PLAYSAMPLES += create_len;
         ULONG use_us = (create_len*1000000)/G.SAMPRATE;
@@ -366,27 +381,147 @@ void MXDRVG_MakePCM(
         rest_us -= use_us;
         rest_len -= create_len;
     }
+    if(rest_len < 0) rest_len = 0;
+    return(len - rest_len);
 }
 
-int MXDRVG_GetPCM(
+// 16-bit sound buffer用
+// オーバーフロー対処、曲が終わった？ときの0クリアもここで
+
+int MXDRVG_GetPCMRAW(
                   SWORD *buf,
                   int len
                   ){
-    // sinn246: overflow対策はここだけに留めるほうがソースはきれいかと・・・
-    // あと、出力をFloatなどにするのも別関数にしたほうが対処しやすい
-    MXDRVG_MakePCM(len);
-    for(int i = 0;i<len*2; i++){
-        if(_innerbuf[i] < -32768){
-            buf[i] = -32768;
-        }else if(_innerbuf[i] > 32767) {
-            buf[i] = 32767;
-        }else{
-            buf[i] = _innerbuf[i];
+    SWORD* p = buf;
+    int rest = len;
+    int retval, createlen;
+    while(rest > 0){
+        createlen = rest > MXDRVG_MAX_SAMPLES ? MXDRVG_MAX_SAMPLES : rest;
+        retval = MXDRVG_MakePCM(createlen);
+        for(int i = 0; i < retval*2; i++){
+            if(_innerbuf[i] < -32768){
+                *p++ = -32768;
+            }else if(_innerbuf[i] > 32767) {
+                *p++ = 32767;
+            }else{
+                *p++ = _innerbuf[i];
+            }
         }
+        if(retval!=createlen){
+            while(p < buf+len*2) *p++ = 0;
+            break;
+        }
+        rest -= createlen;
     }
     return (len);
 }
 
+//  sinn246:Resamplerを使うバージョン
+// 現在はダウンサンプリングのみ対応　アップサンプリングもすぐにできると思いますが。
+
+static SpeexResamplerState* _Resampler = 0;
+static int16_t _Before_buf[MXDRVG_MAX_SAMPLES*2+10];
+static int16_t _Resample_buf[MXDRVG_MAX_SAMPLES*2+10];
+static int _Resample_rest = 0;
+static int16_t* _Resample_rest_ptr = 0;
+
+MXDRVG_EXPORT
+int MXDRVG_MakeResampler(
+                         int inRate,
+                         int outRate
+                         ){
+    if(_Resampler) speex_resampler_destroy(_Resampler);
+    int err = 0;
+    // 第４引数が Resampler Quality 0 - 10: 4 is default
+    // 2 くらいがモバイルでは負荷が少なくて良さそう？
+    // 3 がVoIP用らしいが。音質は後で検討
+    _Resampler = speex_resampler_init(2, inRate, outRate, SPEEX_RESAMPLER_QUALITY_DEFAULT, &err);
+    _Resample_rest = 0;
+    
+    return err;
+}
+
+MXDRVG_EXPORT
+void MXDRVG_ClearResampler(
+                          void
+                          ){
+    if(_Resampler) speex_resampler_destroy(_Resampler);
+    _Resampler = 0;
+}
+
+// ダウンサンプル用、リサンプラーの_inより_outのサイズが小さいことを前提。
+int MXDRVG_GetPCMResampled(
+                  SWORD *buf,
+                  int len
+                  ){
+    SWORD* p = buf;
+    int rest = len;
+    const int bytesPerSample = 2*sizeof(SWORD);
+    if(_Resample_rest){ //前回の残りをコピー
+        if(_Resample_rest > len){// 残りだけで間に合ってしまった
+            memcpy(buf, _Resample_rest_ptr, len * bytesPerSample);
+            _Resample_rest_ptr += len*2; //*2は左右２チャンネル分
+            _Resample_rest -= len;
+            return len;
+        }
+        memcpy(buf, _Resample_rest_ptr, _Resample_rest * bytesPerSample);
+        p += 2*_Resample_rest; //*2は左右２チャンネル分
+        rest -= _Resample_rest;
+        _Resample_rest = 0;
+    }
+    
+    uint32_t _in, _out;
+    while(rest > 0){
+        _in = MXDRVG_MakePCM(MXDRVG_MAX_SAMPLES);
+        if(_in == 0){
+            memset(p, 0, rest * bytesPerSample);
+            break;
+        }
+        // Resamplerはint16_tを使う（INTEGER版）ので、かます前に変換してバッファに入れておく。
+        for(int i = 0; i < _in*2; i++){
+            if(_innerbuf[i] < -32768){
+                _Before_buf[i] = -32768;
+            }else if(_innerbuf[i] > 32767) {
+                _Before_buf[i] = 32767;
+            }else{
+                _Before_buf[i] = _innerbuf[i];
+            }
+        }
+        
+        _out = MXDRVG_MAX_SAMPLES;
+        speex_resampler_process_interleaved_int(_Resampler,
+                                                _Before_buf, &_in,
+                                                _Resample_buf, &_out);
+        // _out に実際に変換されたサンプル数が入る
+        if(_out > rest){// 作りすぎたので次回に残しておく
+            memcpy(p, _Resample_buf, rest * bytesPerSample);
+            _Resample_rest = _out - rest;
+            _Resample_rest_ptr = _Resample_buf + rest*2; // *2 は左右２チャンネル分
+            break;
+        }
+        memcpy(p, _Resample_buf, _out * bytesPerSample);
+        p+=_out*2;
+        rest -= _out;
+    }
+    return (len);
+}
+
+/// 外部から呼ばれるインターフェース
+/// もとのはlenが1024以上でエラーになりましたが、そこは内部で何とかすることにしました。
+
+MXDRVG_EXPORT
+int MXDRVG_GetPCM(
+                  SWORD *buf,
+                  int len
+                  ){
+    if(_Resampler){
+        return MXDRVG_GetPCMResampled(buf, len);
+    }
+    return MXDRVG_GetPCMRAW(buf, len);
+}
+
+
+///// ここまでがsinn246による改造
 /***************************************************************/
 
 

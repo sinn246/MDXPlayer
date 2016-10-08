@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9ACC6B891DA8C8E300B8C93C /* resample.c in Sources */ = {isa = PBXBuildFile; fileRef = 9ACC6B871DA8C8E300B8C93C /* resample.c */; };
 		C30C89411D7B299200908D62 /* Auxiliary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30C893E1D7B299200908D62 /* Auxiliary.swift */; };
 		C30C89421D7B299200908D62 /* NSextension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30C893F1D7B299200908D62 /* NSextension.swift */; };
 		C30C89431D7B299200908D62 /* UIextension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30C89401D7B299200908D62 /* UIextension.swift */; };
@@ -67,6 +68,16 @@
 /* Begin PBXFileReference section */
 		18C5756025C4A1B8895623A3 /* Pods_mdxplayer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_mdxplayer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		7C7453DBC0459ED17CA4BB53 /* Pods-mdxplayer.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-mdxplayer.debug.xcconfig"; path = "Pods/Target Support Files/Pods-mdxplayer/Pods-mdxplayer.debug.xcconfig"; sourceTree = "<group>"; };
+		9A5CB1EA1DA8E6B100CAF263 /* fixed_generic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fixed_generic.h; sourceTree = "<group>"; };
+		9A5CB1EB1DA8E6F100CAF263 /* stack_alloc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stack_alloc.h; sourceTree = "<group>"; };
+		9A5CB1EC1DA8E72800CAF263 /* speexdsp_types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = speexdsp_types.h; sourceTree = "<group>"; };
+		9A5CB1ED1DA8E91100CAF263 /* speex_MDX.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = speex_MDX.h; sourceTree = "<group>"; };
+		9ACC6B831DA8C8E200B8C93C /* arch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = arch.h; sourceTree = "<group>"; };
+		9ACC6B841DA8C8E200B8C93C /* os_support.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = os_support.h; sourceTree = "<group>"; };
+		9ACC6B851DA8C8E200B8C93C /* resample_neon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = resample_neon.h; sourceTree = "<group>"; };
+		9ACC6B861DA8C8E200B8C93C /* resample_sse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = resample_sse.h; sourceTree = "<group>"; };
+		9ACC6B871DA8C8E300B8C93C /* resample.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = resample.c; sourceTree = "<group>"; };
+		9ACC6B881DA8C8E300B8C93C /* speex_resampler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = speex_resampler.h; sourceTree = "<group>"; };
 		C30C893E1D7B299200908D62 /* Auxiliary.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Auxiliary.swift; sourceTree = "<group>"; };
 		C30C893F1D7B299200908D62 /* NSextension.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NSextension.swift; sourceTree = "<group>"; };
 		C30C89401D7B299200908D62 /* UIextension.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UIextension.swift; sourceTree = "<group>"; };
@@ -170,6 +181,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		9ACC6B821DA8C88700B8C93C /* speex */ = {
+			isa = PBXGroup;
+			children = (
+				9ACC6B831DA8C8E200B8C93C /* arch.h */,
+				9A5CB1EA1DA8E6B100CAF263 /* fixed_generic.h */,
+				9ACC6B841DA8C8E200B8C93C /* os_support.h */,
+				9ACC6B851DA8C8E200B8C93C /* resample_neon.h */,
+				9ACC6B861DA8C8E200B8C93C /* resample_sse.h */,
+				9ACC6B871DA8C8E300B8C93C /* resample.c */,
+				9A5CB1EC1DA8E72800CAF263 /* speexdsp_types.h */,
+				9A5CB1ED1DA8E91100CAF263 /* speex_MDX.h */,
+				9ACC6B881DA8C8E300B8C93C /* speex_resampler.h */,
+				9A5CB1EB1DA8E6F100CAF263 /* stack_alloc.h */,
+			);
+			path = speex;
+			sourceTree = "<group>";
+		};
 		BD935862157769666E1A9107 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -242,6 +270,7 @@
 		C32DD956170C614D00D11883 /* jni */ = {
 			isa = PBXGroup;
 			children = (
+				9ACC6B821DA8C88700B8C93C /* speex */,
 				C32DD95F170C614D00D11883 /* fmgen */,
 				C32DD96F170C614D00D11883 /* mxdrvg */,
 				C32DD975170C614D00D11883 /* pcm8 */,
@@ -536,6 +565,7 @@
 				C345FDBD1D71781B009B15E8 /* SpeanaBitmap.m in Sources */,
 				F8350FF11D9C8D9A00A9B239 /* lzx042.c in Sources */,
 				C3F0AC0B1D3232E400C252EC /* InfoVC.swift in Sources */,
+				9ACC6B891DA8C8E300B8C93C /* resample.c in Sources */,
 				C345FDBE1D71781B009B15E8 /* trackinfo.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

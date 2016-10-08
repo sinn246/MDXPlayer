@@ -18,6 +18,11 @@
 #import "trackinfo.h"
 #import "lzx042.h"
 
+
+// sinn246:下のコメントを外すと、ダウンサンプリングをspeexライブラリで行う
+// iOSではスピード落ちるのでおすすめではありません。
+//#define USE_SPEEX
+
 @interface Player ()
 -(void)callback:(AudioQueueRef)inAQ buffer:(AudioQueueBufferRef)inBuffer;
 @end
@@ -221,7 +226,7 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
 
 -(void)setSamplingRate:(NSInteger)samplingRate	// 44100 22050 48000 62500
 {
-    //コールバック実行中に呼ばれると落ちるのでmutex確認する
+    //コールバック実行中に呼ばれると落ちるのでmutex確認して終了を待つ
     while(pthread_mutex_trylock(&mxdrv_mutex)!=0){
         //        NSLog(@"mutex lock failed in setSamplingRate");
         [NSThread sleepForTimeInterval:0.01];
@@ -271,9 +276,21 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
         [session setPreferredSampleRate:(double)_samplingRate error:nil];
     }
     
-    
+
     AudioStreamBasicDescription audioFormat;
+#ifdef USE_SPEEX
+    // 62500 HzのときはMXDRVG内部では62500Hzで処理、出力にspeexダウンサンプラをかませて48000Hzで出力
+    if(_samplingRate == 62500){
+        MXDRVG_MakeResampler(62500,48000);
+    }else{
+        MXDRVG_ClearResampler();
+    }
+    audioFormat.mSampleRate         = _samplingRate==62500 ? 48000 : _samplingRate;
+#else
+    // SPEEXリサンプラを使わずにApple CoreAudioに任せる。
+    // 内部で勝手に周波数変換してくれる模様
     audioFormat.mSampleRate         = _samplingRate;
+#endif
     audioFormat.mFormatID           = kAudioFormatLinearPCM;
     audioFormat.mFormatFlags        = kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked;
     audioFormat.mFramesPerPacket    = 1;
@@ -319,9 +336,10 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
 
 -(void)callback:(AudioQueueRef)inAQ buffer:(AudioQueueBufferRef)inBuffer
 {
-    int playat = MXDRVG_GetPlayAt();
+    const int bytesPerPacket = 4;  // 2 channels * sizeof(sint16_t)
     
-    int cnt = inBuffer->mAudioDataBytesCapacity / (INBLKSIZE*4);
+    int playat = MXDRVG_GetPlayAt();
+    int created = 0;
     
     int sptime = 1;
     if(_speedup) sptime = 10;
@@ -331,27 +349,8 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
         // 無音になるのでそれはそれで困ると思うがひどいエラーにはならない
         for(int spcnt = 0; spcnt < sptime; spcnt++)	// ホントはこのループはいらないの、スピードアップ用
         {
-            SWORD *ptr = (SWORD*)inBuffer->mAudioData;
-            for(int i = 0 ; i < cnt ; i++)
-            {
-                if(!MXDRVG_GetTerminated()){
-                    MXDRVG_GetPCM(ptr , INBLKSIZE); //GetPCMのオーバーランは解消しました
-                }else{
-                    memset(ptr,0, INBLKSIZE*2*2);//ここでゼロクリアしておかないと雑音がなります
-                }
-                ptr += INBLKSIZE * 2;
-            }
+            created = MXDRVG_GetPCM(inBuffer->mAudioData , inBuffer->mAudioDataBytesCapacity / bytesPerPacket) * bytesPerPacket;
         }
-        
-        
-        
-        //	MXDRVのフェードアウト使うとPCMがもどってこないのと、ADPCMは音量調整できなくてアレだったからfadeoutしないのでAudioQueueでやってみる
-        //	if(!playfadeout && playduration && playat > playduration - FOCOUNT)
-        //	{
-        //		MXDRVG_Fadeout();
-        //		playfadeout = 1;
-        //	}
-        
         
         // 手動fadeout
         if(playat > playduration - FOCOUNT && playduration > 0)
@@ -360,26 +359,18 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
             if(v > 1.0) v = 1.0;
             if(v < 0.0) v = 0.0;
             AudioQueueSetParameter(audioQueue, kAudioQueueParam_Volume, v);
-            if(v < 0.05) memset(inBuffer->mAudioData, 0, INBLKSIZE * cnt * 4); // 念のため末尾では無音データにしておく
+            if(v < 0.05) memset(inBuffer->mAudioData, 0, inBuffer->mAudioDataBytesCapacity); // 念のため末尾では無音データにしておく
         }
-        
-        
-        // test sound...
-        //    for(int i = 0 ;i < 3 ; i+=4){
-        //        ptr[i] = 0;
-        //        ptr[i+1] = 0;
-        //        ptr[i+2] = 0xffff;
-        //        ptr[i+3] = 0x7fff;
-        //    }
         
         pthread_mutex_unlock(&mxdrv_mutex);
     }else{//playend=YES or Mutex locked elsewhere
-        memset(inBuffer->mAudioData, 0, INBLKSIZE * cnt * 4);
+        memset(inBuffer->mAudioData, 0, inBuffer->mAudioDataBytesCapacity);
+        created = inBuffer->mAudioDataBytesCapacity;
     }
     
     
-    inBuffer->mAudioDataByteSize = INBLKSIZE * cnt * 4;
-    inBuffer->mPacketDescriptionCount = INBLKSIZE * cnt * 2;
+    inBuffer->mAudioDataByteSize = created;
+    inBuffer->mPacketDescriptionCount = created / 2;
     AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
     
     NSInteger sec = playat / 1000;
