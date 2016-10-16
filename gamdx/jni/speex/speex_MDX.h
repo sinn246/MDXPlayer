@@ -11,10 +11,10 @@
 
 //#define _USE_NEON
 // won't work... 
-
+// ARM64対応ではないみたい
 
 #define FIXED_POINT
 
-#define USE_SPEEX
+//#define USE_SPEEX
 
 #endif /* speex_MDX_h */

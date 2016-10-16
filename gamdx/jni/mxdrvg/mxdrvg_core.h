@@ -439,7 +439,7 @@ int MXDRVG_MakeResampler(
     // 第４引数が Resampler Quality 0 - 10: 4 is default
     // 2 くらいがモバイルでは負荷が少なくて良さそう？
     // 3 がVoIP用らしいが。音質は後で検討
-    _Resampler = speex_resampler_init(2, inRate, outRate, SPEEX_RESAMPLER_QUALITY_DEFAULT, &err);
+    _Resampler = speex_resampler_init(2, inRate, outRate, 2, &err);
     _Resample_rest = 0;
     
     return err;
