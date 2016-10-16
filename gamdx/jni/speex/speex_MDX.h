@@ -13,8 +13,10 @@
 // won't work... 
 // ARM64対応ではないみたい
 
-#define FIXED_POINT
 
-//#define USE_SPEEX
+#define USE_SPEEX
+
+#define FIXED_POINT
+#define MXDRVG_SPEEX_QUALITY 0
 
 #endif /* speex_MDX_h */
