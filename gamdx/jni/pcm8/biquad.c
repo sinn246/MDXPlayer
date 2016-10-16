@@ -64,6 +64,48 @@ smp_type BiQuad(smp_type sample, biquad * b)
     return result;
 }
 
+
+/* sets up a BiQuad Filter */
+biquad *BiQuad_newQ(int type,smp_type freq,
+                   smp_type srate, smp_type Q)
+{
+    biquad *b;
+    smp_type a0 = 0.0,a1,a2,b1,b2,norm;
+    
+    b = malloc(sizeof(biquad));
+    if (b == NULL)
+        return NULL;
+    smp_type K = tan(M_PI * freq / srate);
+    switch (type) {
+        case LPF:
+            norm = 1 / (1 + K / Q + K * K);
+            a0 = K * K * norm;
+            a1 = 2 * a0;
+            a2 = a0;
+            b1 = 2 * (K * K - 1) * norm;
+            b2 = (1 - K / Q + K * K) * norm;
+            break;
+        default:
+            a0=a1=a2=b1=b2=0;
+            break;
+    }
+    
+    /* precompute the coefficients */
+    b->a0 = a0;
+    b->a1 = a1;
+    b->a2 = a2;
+    b->a3 = b1;
+    b->a4 = b2;
+    
+    /* zero initial samples */
+    b->x1 = b->x2 = 0;
+    b->y1 = b->y2 = 0;
+
+    /* setup variables */
+    return b;
+}
+
+
 /* sets up a BiQuad Filter */
 biquad *BiQuad_new(int type, smp_type dbGain, smp_type freq,
                    smp_type srate, smp_type bandwidth)

@@ -110,6 +110,7 @@ class PlayView: UIView, PlayerDelegate {
 		progressSlider.maximumTrackTintColor = UIColor(white: 0, alpha: 0.2)
 
 		volSlider.setThumbImage(UIImage(named: "volume_thumb"), for: .normal)
+        volSlider.maximumValue = 2.0
 
 		openBtn.addTarget(self, action: #selector(tapArrow(_:)), for: .touchUpInside)
 

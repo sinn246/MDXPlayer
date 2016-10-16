@@ -12,8 +12,9 @@
 //#define _USE_NEON
 // won't work... 
 
+
 #define FIXED_POINT
 
-//#define USE_SPEEX
+#define USE_SPEEX
 
 #endif /* speex_MDX_h */

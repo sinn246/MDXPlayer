@@ -374,9 +374,7 @@ int MXDRVG_MakePCM(
         }
         if (create_len == 0) break;
         OPM.Mix(outbuf, create_len);
-        PCM8.MixRAW(outbuf, create_len, 0.6);
-            // ここの0.6というのはFMとADPCMのバランスをとるための経験的な数字。
-            // ここに埋め込むのでなく他で調整したほうが良いかもしれない
+        PCM8.MixRAW(outbuf, create_len);
         outbuf += create_len*2;
         G.PLAYSAMPLES += create_len;
         ULONG use_us = (create_len*1000000)/G.SAMPRATE;
@@ -402,12 +400,13 @@ int MXDRVG_GetPCMRAW(
         createlen = rest > MXDRVG_MAX_SAMPLES ? MXDRVG_MAX_SAMPLES : rest;
         retval = MXDRVG_MakePCM(createlen);
         for(int i = 0; i < retval*2; i++){
-            if(_innerbuf[i] < -32768){
+            int s = _innerbuf[i] * TotalVolume / 256;
+            if(s < -32768){
                 *p++ = -32768;
-            }else if(_innerbuf[i] > 32767) {
+            }else if(s > 32767) {
                 *p++ = 32767;
             }else{
-                *p++ = _innerbuf[i];
+                *p++ = s;
             }
         }
         if(retval!=createlen){
@@ -419,9 +418,11 @@ int MXDRVG_GetPCMRAW(
     return (len);
 }
 
+////////////////////////////////////////////////////////
+#ifdef USE_SPEEX
+
 //  sinn246:Resamplerを使うバージョン
 // 現在はダウンサンプリングのみ対応　アップサンプリングもすぐにできると思いますが。
-#ifdef USE_SPEEX
 static SpeexResamplerState* _Resampler = 0;
 static int16_t _Before_buf[MXDRVG_MAX_SAMPLES*2+10];
 static int16_t _Resample_buf[MXDRVG_MAX_SAMPLES*2+10];
@@ -482,12 +483,13 @@ int MXDRVG_GetPCMResampled(
         }
         // Resamplerはint16_tを使う（INTEGER版）ので、かます前に変換してバッファに入れておく。
         for(int i = 0; i < _in*2; i++){
-            if(_innerbuf[i] < -32768){
+            int s = _innerbuf[i] * TotalVolume / 256;
+            if(s < -32768){
                 _Before_buf[i] = -32768;
-            }else if(_innerbuf[i] > 32767) {
+            }else if(s > 32767) {
                 _Before_buf[i] = 32767;
             }else{
-                _Before_buf[i] = _innerbuf[i];
+                _Before_buf[i] = s;
             }
         }
         
@@ -508,7 +510,10 @@ int MXDRVG_GetPCMResampled(
     }
     return (len);
 }
+////////////////////////////////////////////////////////
 #else
+///// USE_SPEEX not defined
+
 MXDRVG_EXPORT
 int MXDRVG_MakeResampler(
                          int inRate,
@@ -720,6 +725,11 @@ void MXDRVG_PlayAt(
     X68REG reg;
     MXDRVG_CALLBACK_OPMINTFUNC *opmintback;
     UWORD chmaskback;
+
+#ifdef USE_SPEEX
+    _Resample_rest = 0;
+#endif
+    
     
     SETOPMINT( NULL );
     

@@ -30,6 +30,10 @@ biquad *BiQuad_new(int type, smp_type dbGain, /* gain of filter */
                           smp_type freq,             /* center frequency */
                           smp_type srate,            /* sampling rate */
                           smp_type bandwidth);       /* bandwidth in octaves */
+biquad *BiQuad_newQ(int type,
+                       smp_type freq,             /* center frequency */
+                       smp_type srate,            /* sampling rate */
+                       smp_type Q);       /* Q */
 
 #ifdef __cplusplus
 }

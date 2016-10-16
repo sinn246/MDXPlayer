@@ -33,13 +33,10 @@ namespace X68K
         mSampleRate = rate;
         
         if(bq0) free(bq0);
-        bq0 = BiQuad_new(LPF, 0, 15625.0/2.0, rate, 2.0); // 1.0 でよいのかチェック必要
+        bq0 = BiQuad_newQ(LPF, 15625.0/2.0, rate, 1.0/sqrt(2));
         if(bq1) free(bq1);
-        bq1 = BiQuad_new(LPF, 0, 15625.0/2.0, rate, 2.0); // 1.0 でよいのかチェック必要
+        bq1 = BiQuad_newQ(LPF, 15625.0/2.0, rate, 1.0/sqrt(2));
         // sinn246: LowPassFilter
-        // 中心周波数はADPCMが15625Hzなのでそのナイキスト周波数にしてあるが、これだとそれより低い周波数も少しカットされてしまう。
-        // とはいえ、実機でもLPFが7.8KHzに設定してあるという情報を鵜呑みにしてこのとおりにしておく
-        // 参考：https://kmkz.jp/mtm/?day=20060502　http://cygx.mydns.jp/blog/?arti=219
         
         return true;
     }
@@ -102,7 +99,7 @@ namespace X68K
     // ---------------------------------------------------------------------------
     //	ADPCM合成処理(RAW)
     //
-    void X68PCM8::pcmsetRAW(Sample* buffer, int ndata, float volume) {
+    void X68PCM8::pcmsetRAW(Sample* buffer, int ndata) {
         Sample* limit = buffer + ndata * 2;
         for (Sample* dest = buffer; dest < limit; dest+=2) {
             Sample Out0 = 0,Out1 = 0;
@@ -117,12 +114,10 @@ namespace X68K
             Out0 =  (Sample) BiQuad(Out0, bq0);
             Out1 =  (Sample) BiQuad(Out1, bq1);
             
-            Out0 = (Out0 * mVolume) >> 8;
-            Out1 = (Out1 * mVolume) >> 8;
+            dest[0] += (Out0 * mVolume) >> 8;
+            dest[1] += (Out1 * mVolume) >> 8;
             
             // -2048*16〜+2048*16 OPMとADPCMの音量バランス調整
-            dest[0] += Out0 * volume;
-            dest[1] += Out1 * volume;
         }
     }
     
@@ -135,9 +130,9 @@ namespace X68K
     {
     }
 
-    void X68PCM8::MixRAW(Sample* buffer, int nsamples, float volume)
+    void X68PCM8::MixRAW(Sample* buffer, int nsamples)
     {
-        pcmsetRAW(buffer, nsamples, volume);
+        pcmsetRAW(buffer, nsamples);
     }
 
     // ---------------------------------------------------------------------------
