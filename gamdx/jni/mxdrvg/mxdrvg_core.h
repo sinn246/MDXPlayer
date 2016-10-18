@@ -36,7 +36,7 @@
 #include "../pcm8/x68pcm8.h"
 #include "../speex/speex_MDX.h"
 
-#ifdef USE_SPEEX
+#ifdef USE_SPEEX_FOR_DOWNSAMPLING
 #include "../speex/speex_resampler.h"
 #endif
 
@@ -56,10 +56,8 @@ static TCHAR MXDRVG_WORK_CREDIT[] = TEXT("X68k MXDRV music driver version 2.06+1
 
 static volatile MXDRVG_WORK_CH MXDRVG_WORK_CHBUF_FM[9];
 static volatile MXDRVG_WORK_CH MXDRVG_WORK_CHBUF_PCM[7];
-static volatile MXDRVG_WORK_GLOBAL G0;  // MXDRVG_WORK_GLOBALBUF;
 
 static volatile MXDRVG_WORK_GLOBAL G;  // MXDRVG_WORK_GLOBALBUF;
-static volatile MXDRVG_WORK_GLOBAL G1;  // MXDRVG_WORK_GLOBALBUF;
 
 static volatile MXDRVG_WORK_KEY KEY;  // MXDRVG_WORK_KEYBUF;
 
@@ -291,11 +289,7 @@ int MXDRVG_Start(
     }
     
     OPM.Init(4000000, G.SAMPRATE, (G.OPMFILTER != 0));
-#ifdef USE_SPEEX
-    PCM8.Init(15625);
-#else
     PCM8.Init(G.SAMPRATE);
-#endif
     
     OPM.SetVolume(-12);
     PCM8.SetVolume(0);
@@ -425,10 +419,10 @@ int MXDRVG_GetPCMRAW(
 }
 
 ////////////////////////////////////////////////////////
-#ifdef USE_SPEEX
+#ifdef USE_SPEEX_FOR_DOWNSAMPLING
 
 //  sinn246:Resamplerを使うバージョン
-// 現在はダウンサンプリングのみ対応　アップサンプリングもすぐにできると思いますが。
+// 現在はダウンサンプリングのみ対応　といいつつアップサンプリングもできると思いますが。
 static SpeexResamplerState* _Resampler = 0;
 static int16_t _Before_buf[MXDRVG_MAX_SAMPLES*2+10];
 static int16_t _Resample_buf[MXDRVG_MAX_SAMPLES*2+10];
@@ -447,7 +441,7 @@ int MXDRVG_MakeResampler(
     // 第４引数が Resampler Quality 0 - 10: 4 is default
     // 2 くらいがモバイルでは負荷が少なくて良さそう？
     // 3 がVoIP用らしいが。音質は後で検討
-    _Resampler = speex_resampler_init(2, inRate, outRate, MXDRVG_SPEEX_QUALITY, &err);
+    _Resampler = speex_resampler_init(2, inRate, outRate, MXDRVG_SPEEX_DOWNSAMPLING_QUALITY, &err);
     _Resample_rest = _Before_rest = 0;
     
     return err;
@@ -489,7 +483,7 @@ int MXDRVG_GetPCMResampled(
             break;
         }
         // Resamplerはint16_tを使う（INTEGER版）ので、かます前に変換してバッファに入れておく。
-        for(int i = _Before_rest; i < MXDRVG_MAX_SAMPLES*2; i++){
+        for(int i = _Before_rest*2; i < MXDRVG_MAX_SAMPLES*2; i++){
             int s = _innerbuf[i] * TotalVolume / 256;
             if(s < -32768){
                 _Before_buf[i] = -32768;
@@ -506,7 +500,7 @@ int MXDRVG_GetPCMResampled(
                                                 _Resample_buf, &_out);
         _Before_rest = MXDRVG_MAX_SAMPLES - _in;
         if(_Before_rest>0){
-            memcpy(_Before_buf,_Before_buf+(MXDRVG_MAX_SAMPLES - _Before_rest)*2, _Before_rest * bytesPerSample);
+            memmove(_Before_buf,_Before_buf+(MXDRVG_MAX_SAMPLES - _Before_rest)*2, _Before_rest * bytesPerSample);
         }
         // _out に実際に変換されたサンプル数が入る
         if(_out > rest){// 作りすぎたので次回に残しておく
@@ -523,7 +517,7 @@ int MXDRVG_GetPCMResampled(
 }
 ////////////////////////////////////////////////////////
 #else
-///// USE_SPEEX not defined
+///// USE_SPEEX_FOR_DOWNSAMPLING not defined
 
 MXDRVG_EXPORT
 int MXDRVG_MakeResampler(
@@ -539,7 +533,8 @@ void MXDRVG_ClearResampler(
                            ){
 }
 
-#endif // USE_SPEEX
+#endif // USE_SPEEX_FOR_DOWNSAMPLING
+////////////////////////////////////////////////////////
 
 /// 外部から呼ばれるインターフェース
 /// もとのはlenが1024以上でエラーになりましたが、そこは内部で何とかすることにしました。
@@ -549,7 +544,7 @@ int MXDRVG_GetPCM(
                   SWORD *buf,
                   int len
                   ){
-#ifdef USE_SPEEX
+#ifdef USE_SPEEX_FOR_DOWNSAMPLING
     if(_Resampler){
         return MXDRVG_GetPCMResampled(buf, len);
     }

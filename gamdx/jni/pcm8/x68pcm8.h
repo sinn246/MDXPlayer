@@ -9,7 +9,7 @@
 #include "global.h"
 #include "pcm8.h"
 #include "biquad.h"
-#ifdef USE_SPEEX
+#ifdef USE_SPEEX_FOR_ADPCM_UPSAMPLING
 #include "../speex/speex_resampler.h"
 #endif
 
@@ -43,14 +43,6 @@ namespace X68K
 		int mSampleRate;
         biquad* bq0;
         biquad* bq1;
-#ifdef USE_SPEEX
-        SpeexResamplerState* _Resampler = 0;
-        int16_t _Before_buf[1024*2+10];
-        int16_t _Resample_buf[1024*2+10];
-        int _Before_rest = 0;
-        int _Resample_rest = 0;
-        int16_t* _Resample_rest_ptr = 0;
-#endif
         
         inline void pcmsetRAW(Sample* buffer, int ndata);
 	};

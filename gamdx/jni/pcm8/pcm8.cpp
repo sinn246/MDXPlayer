@@ -230,7 +230,7 @@ namespace X68K
         Pcm16Prev = 0;
         InpPcm = 0;
         AdpcmRate = 15625*12;
-        OutRate = rate*12;  //Why 12 ??  by sinn246
+        OutRate = rate*12;
         RateCounter = 0;
         N1Data = 0;
         N1DataFlag = 0;

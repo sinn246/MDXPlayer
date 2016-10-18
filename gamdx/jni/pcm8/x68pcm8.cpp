@@ -4,7 +4,27 @@
 
 namespace X68K
 {
+#ifdef USE_SPEEX_FOR_ADPCM_UPSAMPLING
     
+#define SPEEX_BUFSIZ 256
+// このバッファサイズが大きくなると効率は良くなると思いますが、バッファに貯められているデータの分だけ
+// ADPCMの音が遅れます。　256なら44KHzで 256/44100 = 0.006s程度。1024だとちょっとわかってしまう
+    
+#define SHIFTSIZE 1
+// ADPCMデータを16Bitに収めるためにシフトしておく　その量
+    
+//何故か以下の変数（特に配列）をX86PCM8クラスのメンバ変数にするとLLVMがおかしくなる・・・
+//関係ない変数が破壊されます
+//ということでローカルのstatic変数にしてあります。2つ以上のインスタンスを使うときには困りますが
+    static SpeexResamplerState* Resampler = 0;
+    static int Before_rest = 0;
+    static int Resample_rest = 0;
+    static int16_t* Resample_rest_ptr = 0;
+    static int16_t Before_buf[SPEEX_BUFSIZ * 2 + 10];
+    static int16_t Resample_buf[SPEEX_BUFSIZ * 2 + 10];
+    
+#endif
+
     
     // ---------------------------------------------------------------------------
     //	構築
@@ -25,7 +45,7 @@ namespace X68K
     //
     bool X68PCM8::Init(uint rate)
     {
-#ifdef USE_SPEEX
+#ifdef USE_SPEEX_FOR_ADPCM_UPSAMPLING
         mMask = 0;
         mVolume = 256;
         for (int i=0; i<PCM8_NCH; ++i) {
@@ -33,8 +53,8 @@ namespace X68K
         }
         int err = 0;
         mSampleRate = rate;
-        _Resampler = speex_resampler_init(2, 15625, rate, MXDRVG_SPEEX_QUALITY, &err);
-        _Resample_rest = _Before_rest = 0;
+        Resampler = speex_resampler_init(2, 15625, rate, MXDRVG_SPEEX_ADPCM_QUALITY, &err);
+        Resample_rest = Before_rest = 0;
  
 #else
         mMask = 0;
@@ -112,65 +132,64 @@ namespace X68K
     // ---------------------------------------------------------------------------
     //	ADPCM合成処理(RAW)
     //
-#ifdef USE_SPEEX
-#define SHIFTSIZE 4
-    static void memcpy16to32(int32_t* dest, int16_t* src, int len){
-        for(int i=0;i<len;i++) *dest++ = *src++ << SHIFTSIZE;
+#ifdef USE_SPEEX_FOR_ADPCM_UPSAMPLING
+
+    static void memadd16to32(int32_t* dest, int16_t* src, int len){
+        for(int i=0;i<len;i++) *dest++ += ((long)*src++) << SHIFTSIZE;
     }
     
     void X68PCM8::pcmsetRAW(Sample* buffer, int ndata) {
         int32_t* p = buffer;
         int rest = ndata;
         const int bytesPerSample = 2*sizeof(int16_t);
-        if(_Resample_rest){ //前回の残りをコピー
-            if(_Resample_rest > ndata){// 残りだけで間に合ってしまった
-                memcpy16to32(buffer, _Resample_rest_ptr, ndata * 2);
-                _Resample_rest_ptr += ndata*2; //*2は左右２チャンネル分
-                _Resample_rest -= ndata;
+        if(Resample_rest){ //前回の残りをコピー
+            if(Resample_rest > ndata){// 残りだけで間に合ってしまった
+                memadd16to32(buffer, Resample_rest_ptr, ndata * 2);
+                Resample_rest_ptr += ndata*2; //*2は左右２チャンネル分
+                Resample_rest -= ndata;
                 return;;
             }
-            memcpy16to32(buffer, _Resample_rest_ptr, _Resample_rest * 2);
-            p += 2*_Resample_rest; //*2は左右２チャンネル分
-            rest -= _Resample_rest;
-            _Resample_rest = 0;
+            memadd16to32(buffer, Resample_rest_ptr, Resample_rest * 2);
+            p += 2*Resample_rest; //*2は左右２チャンネル分
+            rest -= Resample_rest;
+            Resample_rest = 0;
         }
         
         uint32_t _in, _out;
         while(rest > 0){
-            int16_t* src = _Before_buf+ _Before_rest*2;
-            for (int i = _Before_rest; i < 1024; i++) {
+            for (int i = Before_rest; i < SPEEX_BUFSIZ; i++) {
                 Sample Out0 = 0,Out1 = 0;
                 for (int ch=0; ch<PCM8_NCH; ++ch) {
-                    int pan = 0;//mPcm8[ch].GetMode();
-                    Sample o = 0;//mPcm8[ch].GetPcmRAW();
+                    int pan = mPcm8[ch].GetMode();
+                    Sample o = mPcm8[ch].GetPcmRAW();
                     if (o != 0x80000000) {
                         if(pan&1) Out0 += o;
                         if(pan&2) Out1 += o;
                     }
                 }
-                *src++ = Out0 >> SHIFTSIZE; // 不本意ながらOverflowすることありシフトしておく
-                *src++ = Out1 >> SHIFTSIZE;
+                Before_buf[i*2] = (Out0 >> SHIFTSIZE); // 不本意ながらOverflowすることありシフトしておく
+                Before_buf[i*2+1] = (Out1 >> SHIFTSIZE);
             }
-            _Resample_rest = 0;
+            Resample_rest = 0;
             
-            _in = 1024;
-            _out = 1024;
-            speex_resampler_process_interleaved_int(_Resampler,
-                                                    _Before_buf, &_in,
-                                                    _Resample_buf, &_out);
-            _Before_rest = 1024 - _in;
-            if(_Before_rest>0){
-                memcpy(_Before_buf,_Before_buf+(1024 - _Before_rest)*2, _Before_rest * bytesPerSample);
+            _in = SPEEX_BUFSIZ;
+            _out = SPEEX_BUFSIZ;
+            speex_resampler_process_interleaved_int(Resampler,
+                                                    Before_buf, &_in,
+                                                    Resample_buf, &_out);
+            Before_rest = SPEEX_BUFSIZ - _in;
+            if(Before_rest>0){
+                memmove(Before_buf,Before_buf+(SPEEX_BUFSIZ - Before_rest)*2, Before_rest * bytesPerSample);
             }
             
             // _out に実際に変換されたサンプル数が入る
             if(_out > rest){// 作りすぎたので次回に残しておく
-                memcpy16to32(p, _Resample_buf, rest * 2);
-                _Resample_rest = _out - rest;
-                _Resample_rest_ptr = _Resample_buf + rest*2; // *2 は左右２チャンネル分
+                memadd16to32(p, Resample_buf, rest * 2);
+                Resample_rest = _out - rest;
+                Resample_rest_ptr = Resample_buf + rest*2; // *2 は左右２チャンネル分
                 break;
             }
-            memcpy16to32(p, _Resample_buf, _out * 2);
+            memadd16to32(p, Resample_buf, _out * 2);
             p+=_out*2;
             rest -= _out;
         }
