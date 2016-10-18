@@ -9,14 +9,13 @@
 #ifndef speex_MDX_h
 #define speex_MDX_h
 
-//#define _USE_NEON
-// won't work... 
-// ARM64対応ではないみたい
-
-
 #define USE_SPEEX
 
 #define FIXED_POINT
 #define MXDRVG_SPEEX_QUALITY 0
+
+//#define _USE_NEON
+// won't work...
+// ARM64対応ではないみたい
 
 #endif /* speex_MDX_h */

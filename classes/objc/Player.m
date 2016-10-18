@@ -569,7 +569,7 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
         [NSThread sleepForTimeInterval:0.01];
     }
     _paused = NO;
-    playend = YES;
+    playend = NO;
     playduration = 0;
     oldsec = -1;
     

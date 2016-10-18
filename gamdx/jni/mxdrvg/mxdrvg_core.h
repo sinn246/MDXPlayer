@@ -56,8 +56,10 @@ static TCHAR MXDRVG_WORK_CREDIT[] = TEXT("X68k MXDRV music driver version 2.06+1
 
 static volatile MXDRVG_WORK_CH MXDRVG_WORK_CHBUF_FM[9];
 static volatile MXDRVG_WORK_CH MXDRVG_WORK_CHBUF_PCM[7];
+static volatile MXDRVG_WORK_GLOBAL G0;  // MXDRVG_WORK_GLOBALBUF;
 
 static volatile MXDRVG_WORK_GLOBAL G;  // MXDRVG_WORK_GLOBALBUF;
+static volatile MXDRVG_WORK_GLOBAL G1;  // MXDRVG_WORK_GLOBALBUF;
 
 static volatile MXDRVG_WORK_KEY KEY;  // MXDRVG_WORK_KEYBUF;
 
@@ -289,7 +291,11 @@ int MXDRVG_Start(
     }
     
     OPM.Init(4000000, G.SAMPRATE, (G.OPMFILTER != 0));
+#ifdef USE_SPEEX
+    PCM8.Init(15625);
+#else
     PCM8.Init(G.SAMPRATE);
+#endif
     
     OPM.SetVolume(-12);
     PCM8.SetVolume(0);
@@ -346,6 +352,7 @@ static Sample _innerbuf[MXDRVG_MAX_SAMPLES*2+10];
 // すくなくともiOSは24bit audio対応なので・・・
 
 int MXDRVG_MakePCM(
+                   Sample* outbuf,
                     int len
                     ){
     // sinn246: overflow対策はこの関数より上位に留める
@@ -356,8 +363,7 @@ int MXDRVG_MakePCM(
     int rest_len = len;
     
     if (len > MXDRVG_MAX_SAMPLES) return 0;
-    memset(_innerbuf, 0, sizeof(_innerbuf));
-    Sample *outbuf = _innerbuf;
+    memset(outbuf, 0, sizeof(Sample)*2*len);
     
     rest_us = (SLONG)(len*1000000)/G.SAMPRATE;
     rest_len = len;
@@ -398,7 +404,7 @@ int MXDRVG_GetPCMRAW(
     int retval, createlen;
     while(rest > 0){
         createlen = rest > MXDRVG_MAX_SAMPLES ? MXDRVG_MAX_SAMPLES : rest;
-        retval = MXDRVG_MakePCM(createlen);
+        retval = MXDRVG_MakePCM(_innerbuf,createlen);
         for(int i = 0; i < retval*2; i++){
             int s = _innerbuf[i] * TotalVolume / 256;
             if(s < -32768){
@@ -426,6 +432,8 @@ int MXDRVG_GetPCMRAW(
 static SpeexResamplerState* _Resampler = 0;
 static int16_t _Before_buf[MXDRVG_MAX_SAMPLES*2+10];
 static int16_t _Resample_buf[MXDRVG_MAX_SAMPLES*2+10];
+static int _Before_rest = 0;
+static int16_t* _Before_rest_ptr = 0;
 static int _Resample_rest = 0;
 static int16_t* _Resample_rest_ptr = 0;
 
@@ -440,7 +448,7 @@ int MXDRVG_MakeResampler(
     // 2 くらいがモバイルでは負荷が少なくて良さそう？
     // 3 がVoIP用らしいが。音質は後で検討
     _Resampler = speex_resampler_init(2, inRate, outRate, MXDRVG_SPEEX_QUALITY, &err);
-    _Resample_rest = 0;
+    _Resample_rest = _Before_rest = 0;
     
     return err;
 }
@@ -453,7 +461,6 @@ void MXDRVG_ClearResampler(
     _Resampler = 0;
 }
 
-// ダウンサンプル用、リサンプラーの_inより_outのサイズが小さいことを前提。
 int MXDRVG_GetPCMResampled(
                   SWORD *buf,
                   int len
@@ -476,13 +483,13 @@ int MXDRVG_GetPCMResampled(
     
     uint32_t _in, _out;
     while(rest > 0){
-        _in = MXDRVG_MakePCM(MXDRVG_MAX_SAMPLES);
+        _in = MXDRVG_MakePCM(_innerbuf+_Before_rest*2, MXDRVG_MAX_SAMPLES-_Before_rest);
         if(_in == 0){
             memset(p, 0, rest * bytesPerSample);
             break;
         }
         // Resamplerはint16_tを使う（INTEGER版）ので、かます前に変換してバッファに入れておく。
-        for(int i = 0; i < _in*2; i++){
+        for(int i = _Before_rest; i < MXDRVG_MAX_SAMPLES*2; i++){
             int s = _innerbuf[i] * TotalVolume / 256;
             if(s < -32768){
                 _Before_buf[i] = -32768;
@@ -492,11 +499,15 @@ int MXDRVG_GetPCMResampled(
                 _Before_buf[i] = s;
             }
         }
-        
+        _in = MXDRVG_MAX_SAMPLES;
         _out = MXDRVG_MAX_SAMPLES;
         speex_resampler_process_interleaved_int(_Resampler,
                                                 _Before_buf, &_in,
                                                 _Resample_buf, &_out);
+        _Before_rest = MXDRVG_MAX_SAMPLES - _in;
+        if(_Before_rest>0){
+            memcpy(_Before_buf,_Before_buf+(MXDRVG_MAX_SAMPLES - _Before_rest)*2, _Before_rest * bytesPerSample);
+        }
         // _out に実際に変換されたサンプル数が入る
         if(_out > rest){// 作りすぎたので次回に残しておく
             memcpy(p, _Resample_buf, rest * bytesPerSample);
@@ -727,7 +738,7 @@ void MXDRVG_PlayAt(
     UWORD chmaskback;
 
 #ifdef USE_SPEEX
-    _Resample_rest = 0;
+    _Resample_rest = _Before_rest = 0;
 #endif
     
     
