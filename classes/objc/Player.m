@@ -19,8 +19,7 @@
 #import "lzx042.h"
 
 
-// sinn246:speex_MDXでUSE_SPEEXがdefineされていると、ダウンサンプリングをspeexライブラリで行う
-// iOSではスピード落ちるのでおすすめではありません。
+// sinn246:speex_MDXでUSE_SPEEXがdefineされていると、ダウンサンプリング/アップサンプリングをspeexライブラリで行う
 #include "speex_MDX.h"
 
 
@@ -228,8 +227,10 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
 -(void)setSamplingRate:(NSInteger)samplingRate	// 44100 22050 48000 62500
 {
     //コールバック実行中に呼ばれると落ちるのでmutex確認して終了を待つ
+    int count = 0;
     while(pthread_mutex_trylock(&mxdrv_mutex)!=0){
         //        NSLog(@"mutex lock failed in setSamplingRate");
+        if(count++ > 100) return; // TimeOut; 何も変更せずに戻る
         [NSThread sleepForTimeInterval:0.01];
     }
 
@@ -574,7 +575,10 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
     oldsec = -1;
     
     NSDictionary *r = [self loadMDXPDX:file];
-    if(r == nil) return NO;
+    if(r == nil){
+        pthread_mutex_unlock(&mxdrv_mutex);
+        return NO;
+    }
     NSData *mdxt = [r objectForKey:@"mdx"];
     NSData *pdxt = [r objectForKey:@"pdx"];
     [self prepareMXDRV:mdxt pdx:pdxt];
