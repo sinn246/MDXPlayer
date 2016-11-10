@@ -270,14 +270,16 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
     
     
     AVAudioSession *session = [AVAudioSession sharedInstance];
-    [session setActive:YES error:nil];
-    [session setCategory:AVAudioSessionCategoryPlayback error:nil];
-    if(_samplingRate > 44100){
-        [session setPreferredSampleRate:48000.0 error:nil];
+    if(_samplingRate > 48000){
+        [session setPreferredSampleRate:192000.0 error:nil];
     }else{
         [session setPreferredSampleRate:(double)_samplingRate error:nil];
     }
     
+    [session setCategory:AVAudioSessionCategoryPlayback error:nil];
+    [session setActive:YES error:nil];
+    
+    NSLog(@"Actual sample rate: %f\n",[session sampleRate]);
 
     AudioStreamBasicDescription audioFormat;
 #ifdef USE_SPEEX
