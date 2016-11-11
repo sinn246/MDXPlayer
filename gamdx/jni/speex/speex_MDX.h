@@ -9,7 +9,7 @@
 #ifndef speex_MDX_h
 #define speex_MDX_h
 
-#define USE_SPEEX
+//#define USE_SPEEX
  // includes speex/resample.c
 #define FIXED_POINT
  //use 16-bit int
@@ -17,7 +17,7 @@
 #ifdef USE_SPEEX
 #define USE_SPEEX_FOR_ADPCM_UPSAMPLING
  // for x68pcm8
-#define USE_SPEEX_FOR_DOWNSAMPLING
+//#define USE_SPEEX_FOR_DOWNSAMPLING
  // for mxdrvg_core
 
 #define MXDRVG_SPEEX_ADPCM_QUALITY 0

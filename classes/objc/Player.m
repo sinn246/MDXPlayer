@@ -280,16 +280,22 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
     [session setActive:YES error:nil];
     
     NSLog(@"Actual sample rate: %f\n",[session sampleRate]);
+    
+    float sr = [session sampleRate];
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [_delegate didChangeSamprate:_samplingRate out:sr];
+    });
 
     AudioStreamBasicDescription audioFormat;
-#ifdef USE_SPEEX
-    // 62500 HzのときはMXDRVG内部では62500Hzで処理、出力にspeexダウンサンプラをかませて48000Hzで出力
+#ifdef USE_SPEEX_FOR_DOWNSAMPLING
+    // 62500 HzのときはMXDRVG内部では62500Hzで処理、出力にspeexダウンサンプラをかませてxxxHzで出力
     if(_samplingRate == 62500){
-        MXDRVG_MakeResampler(62500,48000);
+        MXDRVG_MakeResampler(62500,(int)sr);
     }else{
         MXDRVG_ClearResampler();
     }
-    audioFormat.mSampleRate         = _samplingRate==62500 ? 48000 : _samplingRate;
+    audioFormat.mSampleRate         = _samplingRate==62500 ? sr : _samplingRate;
 #else
     // SPEEXリサンプラを使わずにApple CoreAudioに任せる。
     // 内部で勝手に周波数変換してくれる模様
@@ -313,6 +319,13 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
 {
     NSDictionary* dict = note.userInfo;
     int reason = [dict[AVAudioSessionRouteChangeReasonKey] intValue];
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    float sr = [session sampleRate];
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [_delegate didChangeSamprate:_samplingRate out:sr];
+    });
+
     if(reason == AVAudioSessionRouteChangeReasonOldDeviceUnavailable){
         // イヤホンを抜いた時 Bluetoothとの接続が切れた時　ポーズしないと本体から大きな音が出ることあり
         [self pause:YES];

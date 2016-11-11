@@ -10,6 +10,7 @@ import UIKit
 
 class PlayView: UIView, PlayerDelegate {
 
+
 	let keyLayer = CALayer()
 	let speLayer = CALayer()
 	let spmaskLayer = CALayer()
@@ -76,6 +77,8 @@ class PlayView: UIView, PlayerDelegate {
 		addSubview(loopBtn)
 
 		smpBtn.addSubview(smpLabel)
+        smpLabel.lineBreakMode = .byWordWrapping
+        smpLabel.numberOfLines = 0
 		smpLabel.frame = smpBtn.bounds
 		smpLabel.textAlignment = .center
 		smpLabel.font = .systemFont(ofSize: 9)
@@ -354,6 +357,14 @@ class PlayView: UIView, PlayerDelegate {
 		if keyLayer.isHidden { return }
 		Player.redrawKey(keyLayer, speana: speLayer, paint: true)
 	}
+    func didChangeVolume() {
+        DispatchQueue.main.async {
+            self.volSlider.value = Player.sharedInstance().volume
+        }
+    }
+    public func didChangeSamprate(_ a: Float, out b: Float) {
+        smpLabel.text = String(format: "%.1fk\n%.1fk", a / 1000, b / 1000)
+    }
 
 }
 

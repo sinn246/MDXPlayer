@@ -14,6 +14,8 @@
 -(void)didChangeSecond;
 -(void)didChangeStatus;
 -(void)didChangePauseTo:(BOOL) pause;
+-(void)didChangeVolume;
+-(void)didChangeSamprate:(float) a out:(float) b;
 @end
 
 @interface Player : NSObject
