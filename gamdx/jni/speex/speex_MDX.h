@@ -9,7 +9,7 @@
 #ifndef speex_MDX_h
 #define speex_MDX_h
 
-//#define USE_SPEEX
+#define USE_SPEEX
  // includes speex/resample.c
 #define FIXED_POINT
  //use 16-bit int

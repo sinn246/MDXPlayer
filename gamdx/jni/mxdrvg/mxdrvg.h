@@ -236,6 +236,11 @@ int MXDRVG_GetChannelMask(
 	void
 );
 
+MXDRVG_EXPORT
+ULONG MXDRVG_GetOverflowMax(
+    void
+);
+    
 #endif // __MXDRVG_LOADMODULE
 
 #ifdef __cplusplus

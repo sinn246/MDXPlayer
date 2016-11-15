@@ -363,7 +363,11 @@ class PlayView: UIView, PlayerDelegate {
         }
     }
     public func didChangeSamprate(_ a: Float, out b: Float) {
-        smpLabel.text = String(format: "%.1fk\n%.1fk", a / 1000, b / 1000)
+        if b < 100000 {
+            smpLabel.text = String(format: "%.1fk\n%.1fk", a / 1000, b / 1000)
+        }else{ //100KHz以上なら小数点以下なし
+            smpLabel.text = String(format: "%.1fk\n%fk", a / 1000, b / 1000)
+        }
     }
 
 }

@@ -270,7 +270,7 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
     
     
     AVAudioSession *session = [AVAudioSession sharedInstance];
-    if(_samplingRate > 48000){
+    if(_samplingRate > 48000){// 可能な限り高い周波数で出力
         [session setPreferredSampleRate:192000.0 error:nil];
     }else{
         [session setPreferredSampleRate:(double)_samplingRate error:nil];
@@ -289,7 +289,7 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
 
     AudioStreamBasicDescription audioFormat;
 #ifdef USE_SPEEX_FOR_DOWNSAMPLING
-    // 62500 HzのときはMXDRVG内部では62500Hzで処理、出力にspeexダウンサンプラをかませてxxxHzで出力
+    // 62500 HzのときはMXDRVG内部では62500Hzで処理、出力にspeexダウンサンプラをかませてsr Hzで出力
     if(_samplingRate == 62500){
         MXDRVG_MakeResampler(62500,(int)sr);
     }else{
@@ -319,17 +319,16 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
 {
     NSDictionary* dict = note.userInfo;
     int reason = [dict[AVAudioSessionRouteChangeReasonKey] intValue];
-    AVAudioSession *session = [AVAudioSession sharedInstance];
-    float sr = [session sampleRate];
-    
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [_delegate didChangeSamprate:_samplingRate out:sr];
-    });
-
     if(reason == AVAudioSessionRouteChangeReasonOldDeviceUnavailable){
         // イヤホンを抜いた時 Bluetoothとの接続が切れた時　ポーズしないと本体から大きな音が出ることあり
         [self pause:YES];
     }
+    // USB DAC抜いたりするとsamprate変わることあり
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    float sr = [session sampleRate];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [_delegate didChangeSamprate:_samplingRate out:sr];
+    });
 }
 
 -(void) Interrupted:(NSNotification*) note
@@ -363,11 +362,23 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
     
     if(!playend && pthread_mutex_trylock(&mxdrv_mutex)==0){
         // trylock使っているのは、他でロックされているときに待っているとコールバックがタイムオーバーするかもしれないから
-        // 無音になるのでそれはそれで困ると思うがひどいエラーにはならない
+        // 他でロックされていると無音になるのでそれはそれで困ると思うがひどいエラーにはならない
         for(int spcnt = 0; spcnt < sptime; spcnt++)	// ホントはこのループはいらないの、スピードアップ用
         {
             created = MXDRVG_GetPCM(inBuffer->mAudioData , inBuffer->mAudioDataBytesCapacity / bytesPerPacket) * bytesPerPacket;
         }
+        
+        // Automatic Gain Control
+        ULONG OverflowMax = MXDRVG_GetOverflowMax();
+        if(OverflowMax){
+            volume = volume * 32767.0 / (double)OverflowMax;
+            NSLog(@"Volume set to %f by AGC",volume);
+            MXDRVG_TotalVolume((int)(volume * 256));
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [_delegate didChangeVolume];
+            });
+        }
+        
         
         // 手動fadeout
         if(playat > playduration - FOCOUNT && playduration > 0)

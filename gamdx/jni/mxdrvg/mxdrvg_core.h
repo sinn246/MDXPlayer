@@ -114,6 +114,8 @@ static void (MXDRVG_CALLBACK *MXDRVG_CALLBACK_OPMINT)(void);
 static int volatile MeasurePlayTime;
 static int TotalVolume;
 
+static ULONG OverFlowMax;
+
 /***************************************************************/
 
 static void L_0A( void );
@@ -293,6 +295,7 @@ int MXDRVG_Start(
     
     OPM.SetVolume(-12);
     PCM8.SetVolume(0);
+    OverFlowMax = 0;
     
     ret = Initialize( mdxbufsize, pdxbufsize );
     if ( ret != 0 ) {
@@ -337,6 +340,16 @@ void MXDRVG_End(
 
 /***************************************************************/
 /// ここからsinn246による改造
+
+ULONG MXDRVG_GetOverflowMax(
+                            void
+                            ) {
+// 16bitからのオーバーフローがあったとき、その最大値をかえすのと
+// 最大値を0クリアする。クリアは別関数にするのが本当は良いとわかっているが・・・
+    ULONG retval = OverFlowMax;
+    OverFlowMax = 0;
+    return retval;
+}
 
 static Sample _innerbuf[MXDRVG_MAX_SAMPLES*2+10];
 // sinn246:そもそももとのGetPCMは一回の上限がMXDRVG_MAX_SAMPLESずつに決められていたので、
@@ -403,8 +416,10 @@ int MXDRVG_GetPCMRAW(
             int s = _innerbuf[i] * TotalVolume / 256;
             if(s < -32768){
                 *p++ = -32768;
+                if(OverFlowMax < -s) OverFlowMax = -s;
             }else if(s > 32767) {
                 *p++ = 32767;
+                if(OverFlowMax < s) OverFlowMax = s;
             }else{
                 *p++ = s;
             }
@@ -487,8 +502,10 @@ int MXDRVG_GetPCMResampled(
             int s = _innerbuf[i] * TotalVolume / 256;
             if(s < -32768){
                 _Before_buf[i] = -32768;
+                if(OverFlowMax < -s) OverFlowMax = -s;
             }else if(s > 32767) {
                 _Before_buf[i] = 32767;
+                if(OverFlowMax < s) OverFlowMax = s;
             }else{
                 _Before_buf[i] = s;
             }
@@ -732,7 +749,7 @@ void MXDRVG_PlayAt(
     MXDRVG_CALLBACK_OPMINTFUNC *opmintback;
     UWORD chmaskback;
 
-#ifdef USE_SPEEX
+#ifdef USE_SPEEX_FOR_DOWNSAMPLING
     _Resample_rest = _Before_rest = 0;
 #endif
     
