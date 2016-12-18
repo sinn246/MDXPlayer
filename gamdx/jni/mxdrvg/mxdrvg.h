@@ -11,8 +11,8 @@
 
 typedef struct tagMXDRVG_WORK_CH {
 	UBYTE volatile *S0000;	// Ptr
-	UBYTE S0004_b;	// PCM bank
-	UBYTE volatile *S0004;	// voice ptr
+	UBYTE PCM_bank;	// PCM bank
+	UBYTE volatile *Voice_ptr;	// voice ptr
 	ULONG S0008;	// bend delta
 	ULONG S000c;	// bend offset
 	UWORD S0010;	// D
@@ -20,7 +20,7 @@ typedef struct tagMXDRVG_WORK_CH {
 	UWORD S0014;	// note+D+bend+Pitch LFO offset
 	UBYTE S0016;	// flags b3=keyon/off
 	UBYTE S0017;	// flags
-	UBYTE S0018;	// ch
+	UBYTE channel;	// ch
 	UBYTE S0019;	// carrier slot
 	UBYTE S001a;	// len
 	UBYTE S001b;	// gate
@@ -56,7 +56,7 @@ typedef struct tagMXDRVG_WORK_GLOBAL {
 	ULONG L001ba8;
 	UBYTE volatile *L001bac;
 	UBYTE L001bb4[16];
-	UBYTE L001df4;
+	UBYTE PCM8_locked;
 	UBYTE L001df6[16];
 	UWORD L001e06;	// Channel Mask (true)
 	UBYTE L001e08;
@@ -67,7 +67,7 @@ typedef struct tagMXDRVG_WORK_GLOBAL {
 	UBYTE L001e0d;
 	UBYTE L001e0e;
 	UBYTE L001e10;
-	UBYTE L001e12;	// Paused
+	UBYTE Paused;	// Paused
 	UBYTE L001e13;	// End
 	UBYTE L001e14;	// Fadeout Offset
 	UBYTE L001e15;
@@ -85,8 +85,8 @@ typedef struct tagMXDRVG_WORK_GLOBAL {
 	UBYTE volatile *MDXBUF;
 	UBYTE volatile *PDXBUF;
 	ULONG L00220c;
-	UBYTE volatile *L002218;
-	UBYTE volatile *L00221c;
+	UBYTE volatile *MDXBUF_;
+	UBYTE volatile *PDXBUF_;
   ULONG MDXSIZE;
   ULONG PDXSIZE;
 	UBYTE volatile *L002228;	// voice data

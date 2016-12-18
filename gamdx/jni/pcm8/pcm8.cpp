@@ -59,6 +59,7 @@ namespace X68K
             // バスエラー(ベースアドレス/ベースカウンタ)
             return 1;
         }
+      fprintf(stderr,"not valid under 64-bit environment\n");
         DmaMar = (volatile unsigned char *)((mem0<<24)|(mem1<<16)|(mem2<<8)|(mem3));  // MAR
         DmaMtc = (mem4<<8)|(mem5);  // MTC
         DmaBar = (volatile unsigned char *)((mem6<<24)|(mem7<<16)|(mem8<<8)|(mem9));  // BAR
@@ -267,6 +268,7 @@ namespace X68K
         AdpcmReg = 0xC7;  // ADPCM 停止
         DmaMtc = 0;
         DmaMar = (unsigned char *)adrs;
+      fprintf(stderr,"DMAMar=%p \n",adrs);
         SetMode(mode);
         if ((mode&3) != 0) {
             DmaMtc = len;

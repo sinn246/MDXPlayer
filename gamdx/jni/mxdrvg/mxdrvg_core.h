@@ -46,9 +46,10 @@ extern volatile unsigned char OpmReg1B;  // OPM ÉåÉWÉXÉ^ $1B ÇÃì‡óe
 #define LOGPCM 0
 #define LOGSEQ 0
 #define LOGINT 0
-
 // sorry there is not in iOS #include <android/log.h>
 #define LOG_D(msg) __android_log_write(ANDROID_LOG_DEBUG, "mxdrvg", msg)
+
+#define LOG(...) fprintf(stderr,__VA_ARGS__)
 
 /***************************************************************/
 
@@ -1143,7 +1144,7 @@ static void L_11(
 /***************************************************************/
 /*
  L_12:;
- move.b  (L001e12),-(sp)
+ move.b  (Paused),-(sp)
  move.w  (sp)+,d0
  move.b  (L001e13),d0
  rts
@@ -1151,7 +1152,7 @@ static void L_11(
 static void L_12(
                  void
                  ) {
-    D0 = G.L001e12*256 + G.L001e13;
+    D0 = G.Paused*256 + G.L001e13;
 }
 
 
@@ -1231,12 +1232,12 @@ static void L_17(
         
         // L0001ee:;
         /*
-         move.b  (L001e12),-(sp)
+         move.b  (Paused),-(sp)
          move.w  (sp)+,d0
          move.b  (L001e13),d0
          rts
          */
-        D0 = G.L001e12*256 + G.L001e13;
+        D0 = G.Paused*256 + G.L001e13;
         return;
     }
     
@@ -1356,16 +1357,16 @@ L000134:;
     
 L000164:;
     /*
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      beq     L000174
      move.w  #$01ff,d0
      trap    #2
-     clr.b   (L001df4)
+     clr.b   (PCM8_locked)
      */
-    if ( G.L001df4 == 0 ) goto L000174;
+    if ( G.PCM8_locked == 0 ) goto L000174;
     D0 = 0x01ff;
     PCM8_SUB();
-    G.L001df4 = CLR;
+    G.PCM8_locked = CLR;
     
 L000174:;
     /*
@@ -1407,14 +1408,14 @@ L0001a0:;
      addq.w  #1,d7
      cmp.w   #$0009,d7
      bcs     L00018c
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      beq     L0001d6
      lea.l   CHBUF_PCM(pc),a6
      */
     A6++;
     D7++;
     if ( D7 < 0x0009 ) goto L00018c;
-    if ( G.L001df4 == 0 ) goto L0001d6;
+    if ( G.PCM8_locked == 0 ) goto L0001d6;
     A6 = &MXDRVG_WORK_CHBUF_PCM[0];
     
 L0001b6:;
@@ -1456,12 +1457,12 @@ L0001d6:;
     
     // L0001ee:;
     /*
-     move.b  (L001e12),-(sp)
+     move.b  (Paused),-(sp)
      move.w  (sp)+,d0
      move.b  (L001e13),d0
      rts
      */
-    D0 = G.L001e12*256 + G.L001e13;
+    D0 = G.Paused*256 + G.L001e13;
     
 }
 
@@ -2399,8 +2400,8 @@ static void L000534(
      clr.b   (L002230)
      clr.b   (L002231)
      movea.l MDXBUF(pc),a0
-     move.l  (a0),(L002218)
-     move.l  $0004(a0),(L00221c)
+     move.l  (a0),(MDXBUF_)
+     move.l  $0004(a0),(PDXBUF_)
      bra     L00063e
      */
     G.L001e18 = CLR;
@@ -2408,8 +2409,9 @@ static void L000534(
     G.L002231 = CLR;
     A0 = G.MDXBUF;
     // ここから２行は６４ビット環境では明らかにおかしい。しかしMXDRVG(D0=0x0D)という謎の？コマンドで呼ばれるのみなので放置
-    G.L002218 = (UBYTE *)GETBLONG( A0 );
-    G.L00221c = (UBYTE *)GETBLONG( A0+4 );
+  LOG("not valid under 64-bit environment\n");
+    G.MDXBUF_ = (UBYTE *)GETBLONG( A0 );
+    G.PDXBUF_ = (UBYTE *)GETBLONG( A0+4 );
     L00063e();
 }
 
@@ -2539,13 +2541,13 @@ L0005c4:;
     /*
      lea.l   (L002230),a2
      movea.l MDXBUF(pc),a0
-     move.l  a0,(L002218)
+     move.l  a0,(MDXBUF_)
      move.l  (L002220),d0
      bra     L0005f8
      */
     A2 = &G.L002230;
     A0 = G.MDXBUF;
-    G.L002218 = A0;
+    G.MDXBUF_ = A0;
     D0 = G.MDXSIZE;
     L0005f8();
 }
@@ -2576,12 +2578,12 @@ L0005e8:;
     /*
      lea.l   (L002231),a2
      movea.l PDXBUF(pc),a0
-     move.l  a0,(L00221c)
+     move.l  a0,(PDXBUF_)
      move.l  (L002224),d0
      */
     A2 = &G.L002231;
     A0 = G.PDXBUF;
-    G.L00221c = A0;
+    G.PDXBUF_ = A0;
     D0 = G.PDXSIZE;
     
     /*
@@ -2723,16 +2725,16 @@ static void L00063e(
     
 L00066a:;
     /*
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      beq     L00067a
      move.w  #$01ff,d0
      trap    #2
-     clr.b   (L001df4)
+     clr.b   (PCM8_locked)
      */
-    if ( G.L001df4 == 0 ) goto L00067a;
+    if ( G.PCM8_locked == 0 ) goto L00067a;
     D0 = 0x01ff;
     PCM8_SUB();
-    G.L001df4 = CLR;
+    G.PCM8_locked = CLR;
     
 L00067a:;
     /*
@@ -2794,9 +2796,9 @@ static void L_PAUSE(
     
     // L_PAUSE:;
     /*
-     st.b    (L001e12)
+     st.b    (Paused)
      */
-    G.L001e12 = SET;
+    G.Paused = SET;
     G.STOPMUSICTIMER = SET;
     
     /*
@@ -2814,9 +2816,9 @@ static void L_PAUSE_(
     
     // L_PAUSE:;
     /*
-     st.b    (L001e12)
+     st.b    (Paused)
      */
-    G.L001e12 = SET;
+    G.Paused = SET;
     
     /*
      ; fall down
@@ -2906,11 +2908,11 @@ static void L_CONT(
     
     // L_CONT:;
     /*
-     clr.b   (L001e12)
+     clr.b   (Paused)
      moveq.l #$07,d7
      lea.l   CHBUF_FM(pc),a6
      */
-    G.L001e12 = CLR;
+    G.Paused = CLR;
     G.STOPMUSICTIMER = CLR;
     G.MUSICTIMER = G.L001e0c;
     D7 = 0x07;
@@ -3046,7 +3048,7 @@ static void L000788(
      move.l  a0,(L001e28)
      move.w  (a0),(L001e22)
      movea.l $0002(a0),a1
-     move.l  (a1),(L00221c)
+     move.l  (a1),(PDXBUF_)
      addq.w  #4,a1
      move.w  (a1),d0
      not.w   d0
@@ -3054,15 +3056,16 @@ static void L000788(
      not.w   d1
      move.b  d0,(L002230)
      move.b  d1,(L002231)
-     move.l  a1,(L002218)
+     move.l  a1,(MDXBUF_)
      clr.w   (L001e1c)
      bra     L0007c0
      */
     G.L001e28 = A0;
     G.L001e22 = GETBWORD( A0 );
     //ここから2行は64ビット環境では上手く動かない。しかし何故かここは呼ばれないみたい？
+  LOG("not valid under 64-bit env.\n");
     A1 = (UBYTE *)GETBLONG( A0+2 );
-    G.L00221c = (UBYTE *)GETBLONG( A1 );
+    G.PDXBUF_ = (UBYTE *)GETBLONG( A1 );
     A1 += 4;
     D0 = GETBWORD( A1 );
     D0 = ~D0;
@@ -3070,7 +3073,7 @@ static void L000788(
     D1 = ~D1;
     G.L002230 = (UBYTE)D0;
     G.L002231 = (UBYTE)D1;
-    G.L002218 = A1;
+    G.MDXBUF_ = A1;
     G.L001e1c = CLR;
     L0007c0(); return;
     
@@ -3126,7 +3129,7 @@ static void L0007c0(
      clr.b   (L001e15)
      clr.b   (L001e17)
      clr.b   (L001e13)
-     tst.b   (L001e12)
+     tst.b   (Paused)
      beq     L0007f4
      movea.l $0088.w,a0
      move.l  -$0008(a0),d0
@@ -3139,7 +3142,7 @@ static void L0007c0(
     G.L001e15 = CLR;
     G.L001e17 = CLR;
     G.L001e13 = CLR;
-    if ( G.L001e12 == 0 ) goto L0007f4;
+    if ( G.Paused == 0 ) goto L0007f4;
     if ( !PCM8_ENABLE ) goto L0007f4;
     
     // L0007ee:;
@@ -3152,8 +3155,8 @@ static void L0007c0(
     
 L0007f4:;
     /*
-     clr.b   (L001e12)
-     clr.b   (L001df4)
+     clr.b   (Paused)
+     clr.b   (PCM8_locked)
      move.w  #$01ff,(L001e1a)
      move.w  #$01ff,(L001e06)
      clr.w   (L002246)
@@ -3161,17 +3164,17 @@ L0007f4:;
      move.b  (L002230),d0
      beq     L_ERROR
      bsr     L00063e
-     movea.l (L002218),a2
+     movea.l (MDXBUF_),a2
      move.w  $0002(a2),d1
      bmi     L000848
      tst.b   (L002231)
      beq     L_ERROR
-     movea.l (L00221c),a0
+     movea.l (PDXBUF_),a0
      bra     L00083c
      */
-    G.L001e12 = CLR;
+    G.Paused = CLR;
     G.STOPMUSICTIMER = CLR;
-    G.L001df4 = CLR;
+    G.PCM8_locked = CLR;
     G.L001e1a = 0x01ff;
     G.L001e06 = 0x01ff;
     G.L002246 = CLR;
@@ -3179,11 +3182,11 @@ L0007f4:;
     D0 = G.L002230;
     if ( D0 == 0 ) { L_ERROR(); return; }
     L00063e();
-    A2 = G.L002218;
+    A2 = G.MDXBUF_;
     D1 = GETBWORD( A2+2 );
     if ( (SWORD)D1 < 0 ) goto L000848;
     if ( G.L002231 == 0 ) { L_ERROR(); return; }
-    A0 = G.L00221c;
+    A0 = G.PDXBUF_;
     goto L00083c;
     
 L000834:;
@@ -3205,6 +3208,7 @@ L00083c:;
     if ( D1-- != 0 ) goto L000834;
     A0 += GETBWORD( A0+4 );
     G.L00222c = A0;
+  LOG("set ptr to %p\n",A0);
     
 L000848:;
     /*
@@ -3227,6 +3231,8 @@ L000848:;
     D0 = GETBWORD( A1 ); A1 += 2;
     A2 += D0;
     G.L002228 = A2;
+  LOG("set Voice ptr to %p\n",A2);
+  
     A6 = &MXDRVG_WORK_CHBUF_FM[0];
     A3 = (UBYTE *)0;
     D6 = 0xffffffff;
@@ -3273,7 +3279,7 @@ L000866:;
     A6->S0040 = (UBYTE *)A3;
     A6->S0014 = (UWORD)D6;
     A6->S0023 = (UBYTE)D6;
-    A6->S0018 = (UBYTE)D7;
+    A6->channel = (UBYTE)D7;
     A6->S001d = 0x00;
     A6->S001a = 0x01;
     A6->S0022 = 0x08;
@@ -3314,10 +3320,10 @@ L0008d4:;
      */
     A6->S001c = 0x10;
     A6->S0022 = 0x08;
-    A6->S0018 = (UBYTE)D7;
-    A6->S0018 &= 0x07;
-    A6->S0018 |= 0x80;
-    A6->S0004_b = 0x00;
+    A6->channel = (UBYTE)D7;
+    A6->channel &= 0x07;
+    A6->channel |= 0x80;
+    A6->PCM_bank = 0x00;
     if ( D7 == 0x000f ) goto L000910;
     D7++;
     A6++;
@@ -3427,11 +3433,11 @@ static void L_08(
     /*
      tst.b   (L002230)
      beq     L000998
-     movea.l (L002218),a0
+     movea.l (MDXBUF_),a0
      bra     L00096e
      */
     if ( G.L002230 == 0 ) { L000998(); return; };
-    A0 = G.L002218;
+    A0 = G.MDXBUF_;
     goto L00096e;
     
 L000968:;
@@ -3466,11 +3472,11 @@ static void L_09(
     /*
      tst.b   (L002231)
      beq     L000998
-     movea.l (L00221c),a0
+     movea.l (PDXBUF_),a0
      bra     L00098c
      */
     if ( G.L002231 == 0 ) { L000998(); return; }
-    A0 = G.L00221c;
+    A0 = G.PDXBUF_;
     goto L00098c;
     
 L000986:;
@@ -3556,7 +3562,7 @@ static void L_OPMINT(
      movem.l d0-d7/a0-a5,-(sp)
      lea.l   L00220c(pc),a5
      st.b    (L002245)
-     tst.b   (L001e12)
+     tst.b   (Paused)
      bne     L000a66
      lea.l   L001e1e(pc),a0
      lea.l   L001e17(pc),a1
@@ -3568,7 +3574,7 @@ static void L_OPMINT(
      */
     d0=D0, d1=D1, d2=D2, d3=D3, d4=D4, d5=D5, d6=D6, d7=D7, a0=A0, a1=A1, a2=A2, a3=A3, a4=A4, a5=A5, a6=A6;
     G.L002245 = SET;
-    if ( G.L001e12 != 0 ) goto L000a66;
+    if ( G.Paused != 0 ) goto L000a66;
     a0_w = &G.L001e1e[0];
     A1 = &G.L001e17;
     if ( *(A1) == 0 ) goto L000a66;
@@ -3657,16 +3663,16 @@ L000a26:;
     
 L000a56:;
     /*
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      beq     L000a66
      move.w  #$01ff,d0
      trap    #2
-     clr.b   (L001df4)
+     clr.b   (PCM8_locked)
      */
-    if ( G.L001df4 == 0 ) goto L000a66;
+    if ( G.PCM8_locked == 0 ) goto L000a66;
     D0 = 0x01ff;
     PCM8_SUB();
-    G.L001df4 = CLR;
+    G.PCM8_locked = CLR;
     
 L000a66:;
     /*
@@ -3792,7 +3798,7 @@ L000b20:;
      bne     L000b56
      btst.b  #$01,$080b.w  ; XF5
      beq     L000bd0
-     tst.b   (L001e12)
+     tst.b   (Paused)
      beq     L000b4a
      bpl     L000bbe
      tst.b   (L001e10)
@@ -3802,8 +3808,8 @@ L000b20:;
      */
     if ( KEY.XF4 ) goto L000b56;
     if ( !KEY.XF5 ) goto L000bd0;
-    if ( G.L001e12 == 0 ) goto L000b4a;
-    if ( (SBYTE)G.L001e12 >= 0 ) goto L000bbe;
+    if ( G.Paused == 0 ) goto L000b4a;
+    if ( (SBYTE)G.Paused >= 0 ) goto L000bbe;
     if ( G.L001e10 != 0 ) goto L000bca;
     L_CONT();
     goto L000bbe;
@@ -3821,7 +3827,7 @@ L000b4a:;
     
 L000b56:;
     /*
-     tst.b   (L001e12)
+     tst.b   (Paused)
      beq     L000bca
      tst.b   (L001e10)
      bne     L000bca
@@ -3829,7 +3835,7 @@ L000b56:;
      moveq.l #$00,d2
      bra     L000bec
      */
-    if ( G.L001e12 == 0 ) goto L000bca;
+    if ( G.Paused == 0 ) goto L000bca;
     if ( G.L001e10 != 0 ) goto L000bca;
     G.L001e10 = SET;
     D2 = 0;
@@ -3933,12 +3939,12 @@ L000bd4:;
     
 L000bd8:;
     /*
-     tst.b   (L001e12)
+     tst.b   (Paused)
      bne     L000be4
      tst.b   (L001e13)
      beq     L000bec
      */
-    if ( G.L001e12 != 0 ) goto L000be4;
+    if ( G.Paused != 0 ) goto L000be4;
     if ( G.L001e13 == 0 ) goto L000bec;
     
 L000be4:;
@@ -3986,14 +3992,14 @@ L000c0c:;
      addq.w  #1,d7
      cmp.w   #$0009,d7
      bcs     L000bfa
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      beq     L000c40
      lea.l   CHBUF_PCM(pc),a6
      */
     A6++;
     D7++;
     if ( D7 < 0x0009 ) goto L000bfa;
-    if ( G.L001df4 == 0 ) goto L000c40;
+    if ( G.PCM8_locked == 0 ) goto L000c40;
     A6 = &MXDRVG_WORK_CHBUF_PCM[0];
     
 L000c22:;
@@ -4073,7 +4079,7 @@ static void L000c66(
      */
     if ( !(A6->S0016 & (1<<0) ) ) goto L000cce;
     if ( A6->S0020 ) goto L000cca;
-    if ( (SBYTE)(A6->S0018) < 0 ) goto L000cbe;
+    if ( (SBYTE)(A6->channel) < 0 ) goto L000cbe;
     L000d84();
     L000e66();
     if ( A6->S0016 & (1<<3) ) goto L000cb4;
@@ -4133,7 +4139,7 @@ L000cce:;
      bsr     L000cdc
      bsr     L000dfe
      */
-    if ( (SBYTE)(A6->S0018) < 0 ) goto L000cda;
+    if ( (SBYTE)(A6->channel) < 0 ) goto L000cda;
     L000cdc();
     L000dfe();
     
@@ -4230,7 +4236,7 @@ L000d04:;
      */
     D2 = (UWORD)(D2*4);
     D1 = 0x30;
-    D1 += A6->S0018;
+    D1 += A6->channel;
     L_WRITEOPM();
     D1 -= 8;
     D2 >>= 8;
@@ -4276,7 +4282,7 @@ static void L000d84(
      */
     c0 = A6->S0017 & (1<<1); A6->S0017 &= ~(1<<1);
     if ( !c0 ) goto L000df4;
-    A0 = A6->S0004;
+    A0 = A6->Voice_ptr;
     if ( A0 == NULL ) A0 = &FAKEA6S0004[0];
     A6->S001c &= 0xc0;
     D0 = *(A0++);
@@ -4286,10 +4292,10 @@ static void L000d84(
     A6->S0019 = (UBYTE)D3;
     D0 = *(A0++);
     D0 <<= 3;
-    D0 |= A6->S0018;
+    D0 |= A6->channel;
     A6->S001d = (UBYTE)D0;
     D1 = 0x40;
-    D1 += A6->S0018;
+    D1 += A6->channel;
     D0 = 0x03;
     
 L000dbc:;
@@ -4449,12 +4455,12 @@ static void L000e28(
      moveq.l #$03,d4
      */
     A6->S0023 = (UBYTE)D0;
-    A0 = A6->S0004;
+    A0 = A6->Voice_ptr;
     if ( A0 == NULL ) A0 = &FAKEA6S0004[0];
     A0 += 6;
     D3 = A6->S0019;
     D1 = 0x60;
-    D1 += A6->S0018;
+    D1 += A6->channel;
     D4 = 0x03;
     
 L000e3e:;
@@ -4514,7 +4520,7 @@ static void L000e66(
     if ( !c0 ) goto L000e7c;
     D2 = A6->S001c;
     D1 = 0x20;
-    D1 += A6->S0018;
+    D1 += A6->channel;
     L_WRITEOPM(); return;
     
 L000e7c:;
@@ -4580,7 +4586,7 @@ L000e92:;
      moveq.l #$08,d1
      bra     L_WRITEOPM
      */
-    if ( (SBYTE)A6->S0018 < 0 ) goto L000eb2;
+    if ( (SBYTE)A6->channel < 0 ) goto L000eb2;
     D2 = A6->S001d;
     A2 = &G.L00223c[0];
     A2[D7] = (UBYTE)D2;
@@ -4628,7 +4634,7 @@ L000edc:;
      and.w   #$001c,d2
      lsl.w   #6,d2
      or.w    d1,d2
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      bne     L000f28
      tst.b   (L001e15)
      beq     L000ef4
@@ -4637,7 +4643,7 @@ L000edc:;
     D2 &= 0x001c;
     D2 <<= 6;
     D2 |= D1;
-    if ( G.L001df4 ) goto L000f28;
+    if ( G.PCM8_locked ) goto L000f28;
     if ( G.L001e15 == 0 ) goto L000ef4;
     D2 &= 0xfc;
     
@@ -4717,19 +4723,26 @@ L000f28:;
      lea.l   L000e56(pc),a2
      move.b  $00(a2,d1.w),d1
      */
+  LOG("PCM out %d  ",D0);
+#if 0
     D1 = 0x00;
-    D1 = A6->S0004_b;
-    D1 <<= 0x05;
+    D1 = A6->PCM_bank;
+  if(D1>0){
+    D1 -= 1; // sinn246
+    D1 <<= 0x03; // from 0x05; by sinn246
     D0 += D1;
     D1 += D1;
     D0 += D1;
+  }
+#endif
+  
     D0 <<= 3;
-    A1 = G.L00222c;
+  A1 = G.L00222c;
     A0 = A1+D0;
     D3 = GETBLONG( A0+4 );
     if ( D3 == 0 ) goto L000f26;
     A1 += GETBLONG( A0 );
-    D0 = A6->S0018;
+    D0 = A6->channel;
     D0 &= 0x0007;
     D1 = 0x00;
     D1 = A6->S0022;
@@ -4785,7 +4798,7 @@ L000f8e:;
     D1 |= (D2&0xffff);
     D2 = 0x00;
     PCM8_SUB();
-    D0 = A6->S0018;
+    D0 = A6->channel;
     D0 &= 0x07;
     D2 = D3;
     D2 &= 0xffffff;
@@ -4843,7 +4856,7 @@ static void L000ff6(
      move.b  d2,$00(a2,d7.w)
      bra     L_WRITEOPM
      */
-    D2 = A6->S0018;
+    D2 = A6->channel;
     if ( (SBYTE)D2 < 0 ) goto L001012;
     D1 = 0x08;
     A2 = &G.L00223c[0];
@@ -4858,7 +4871,7 @@ L001012:;
      beq     L00103a
      tst.b   (L001e09)
      bne     L00103a
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      beq     L00103c
      move.b  $0018(a6),d0
      and.w   #$0007,d0
@@ -4872,8 +4885,8 @@ L001012:;
     D0 = G.L002231;
     if ( D0 == 0 ) goto L00103a;
     if ( G.L001e09 ) goto L00103a;
-    if ( G.L001df4 == 0 ) goto L00103c;
-    D0 = A6->S0018;
+    if ( G.PCM8_locked == 0 ) goto L00103c;
+    D0 = A6->channel;
     D0 &= 0x0007;
     D1 = 0x00;
     D1 = A6->S0022;
@@ -4927,7 +4940,7 @@ static void L001050(
      move.l  $0008(a6),d0
      add.l   d0,$000c(a6)
      */
-    if ( (SBYTE)A6->S0018 < 0 ) goto L001092;
+    if ( (SBYTE)A6->channel < 0 ) goto L001092;
     if ( (SBYTE)A6->S0016 >= 0 ) goto L00106a;
     if ( A6->S0020 ) goto L00106a;
     D0 = A6->S0008;
@@ -5520,16 +5533,17 @@ L0011dc:;
 #if 0
     FILE *fout;
     fout = fopen( "c:\\temp\\seq.log", "ab+" );
-    fprintf( fout, "%2d %08lX %02X\n", A6->S0018, (ULONG)A4, *(A4) );
+    fprintf( fout, "%2d %08lX %02X\n", A6->channel, (ULONG)A4, *(A4) );
     fclose( fout );
 #endif
     {
         char s[1024];
-        sprintf(s, "SEQ: %2d %08lX %02X", A6->S0018, (ULONG)A4, *(A4));
+        sprintf(s, "SEQ: %2d %08lX %02X", A6->channel, (ULONG)A4, *(A4));
         LOG_D(s);
     }
 #endif
-    
+//  LOG( "SEQ: %2d %p %02X\n", A6->channel, A4, *(A4));
+  
     D0 = 0x00;
     D1 = 0x00;
     D0 = *(A4++);
@@ -5697,7 +5711,10 @@ static void L0012be(									// @@ @
      movea.l (L002228),a0
      bra     L0012d0
      */
-    if ( (SBYTE)A6->S0018 < 0 ) goto L0012e0;
+  if ( (SBYTE)A6->channel < 0 ){
+//    LOG("PCM bank set but ignoring...\n");
+    goto L0012e0;
+  }
     D0 = *(A4++);
     A0 = G.L002228;
     goto L0012d0;
@@ -5724,7 +5741,8 @@ L0012d0:;
      rts
      */
     if ( *(A0++) != (UBYTE)D0 ) goto L0012cc;
-    A6->S0004 = A0;
+    A6->Voice_ptr = A0;
+  A6->PCM_bank = 0; // by SN
     A6->S0017 |= 0x02;
     return;
     
@@ -5733,7 +5751,8 @@ L0012e0:;
      move.b  (a4)+,$0004_b(a6)
      rts
      */
-    A6->S0004_b = *(A4++);
+    A6->PCM_bank = *(A4++);
+  LOG( "PCM_bank = %d\n",A6->PCM_bank);
     
 }
 
@@ -5755,7 +5774,7 @@ static void L0012e6(									// @@ p
      ori.b   #$04,$0017(a6)
      rts
      */
-    if ( (SBYTE)A6->S0018 < 0 ) goto L001302;
+    if ( (SBYTE)A6->channel < 0 ) goto L001302;
     D0 = A6->S001c;
     D0 &= 0x3f;
     D0 |= (*(A4++))<<6;
@@ -6167,7 +6186,7 @@ static void L0013e6(
      tst.b   (L001e18)
      bne     L001416
      move.w  #$01ff,(L001e1a)
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      beq     L001410
      ori.w   #$fe00,(L001e1a)
      */
@@ -6179,7 +6198,7 @@ static void L0013e6(
     if ( D0 ) goto L00143e;
     if ( G.L001e18 ) goto L001416;
     G.L001e1a = 0x01ff;
-    if ( !G.L001df4 ) goto L001410;
+    if ( !G.PCM8_locked ) goto L001410;
     G.L001e1a |= 0xfe00;
     
 L001410:;
@@ -6195,13 +6214,13 @@ L001416:;
      tst.b   (L001e17)
      bne     L00143e
      move.w  #$01ff,(L001e1a)
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      beq     L00142e
      ori.w   #$fe00,(L001e1a)
      */
     if ( G.L001e17 ) goto L00143e;
     G.L001e1a = 0x01ff;
-    if ( !G.L001df4 ) goto L00142e;
+    if ( !G.PCM8_locked ) goto L00142e;
     G.L001e1a |= 0xfe00;
     
 L00142e:;
@@ -6260,11 +6279,11 @@ static void L001442(
      move.w  d0,(L001e06)
      bne     L001490
      move.b  #$01,(L001e13)
-     tst.b   (L001df4)
+     tst.b   (PCM8_locked)
      beq     L001472
      move.w  #$01ff,d0
      trap    #2
-     clr.b   (L001df4)
+     clr.b   (PCM8_locked)
      */
     A4 = L0019b2;
     D0 = G.L001e1a;
@@ -6275,10 +6294,10 @@ static void L001442(
     G.L001e06 = (UWORD)D0;
     if ( D0 ) goto L001490;
     G.L001e13 = 0x01;
-    if ( !G.L001df4 ) goto L001472;
+    if ( !G.PCM8_locked ) goto L001472;
     D0 = 0x01ff;
     PCM8_SUB();
-    G.L001df4 = CLR;
+    G.PCM8_locked = CLR;
     
 L001472:;
     /*
@@ -6417,7 +6436,7 @@ static void L0014dc(
      bra     L_WRITEOPM
      */
     D2 = *(A4++);
-    if ( (SBYTE)(A6->S0018) < 0x00 ) goto L0014ee;
+    if ( (SBYTE)(A6->channel) < 0x00 ) goto L0014ee;
     G.L002232 = (UBYTE)D2;
     D1 = 0x0f;
     L_WRITEOPM(); return;
@@ -6736,7 +6755,7 @@ L001640:;
      bra     L_WRITEOPM
      */
     D1 = 0x38;
-    D1 += A6->S0018;
+    D1 += A6->channel;
     L_WRITEOPM(); return;
     
 L00164a:;
@@ -6790,13 +6809,13 @@ static void L00165c(
     
     // L00167c:;
     /*
-     st.b    (L001df4)
+     st.b    (PCM8_locked)
      move.w  #$01fe,d0
      trap    #2
      ori.w   #$fe00,(L001e1a)
      ori.w   #$fe00,(L001e06)
      */
-    G.L001df4 = SET;
+    G.PCM8_locked = SET;
     D0 = 0x01fe;
     PCM8_SUB();
     G.L001e1a |= 0xfe00;
@@ -7236,7 +7255,7 @@ DOS     _SUPER
 pea.l   L0019b5(pc)
 DOS     _PRINT
 lea.l   L00220c(pc),a5
-move.w  #$0001,(L001e12)
+move.w  #$0001,(Paused)
 clr.l   (L001e08)
 move.l  $0008(a0),(L001bb0)
 move.l  #$00010000,(L002220)

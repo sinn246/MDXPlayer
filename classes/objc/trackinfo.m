@@ -42,11 +42,11 @@ void renewTRACKINFO()
     // S004a is defined as UWORD but in MMDSP  it is accessed as BYTE
     // and then negated and sign extended, to make KBS_A. ignoring it.
     KEYUPDATE(KBS_A, S004a, 5);
-    KEYUPDATE(KBS_PROG, S0004, 6);
+    KEYUPDATE(KBS_PROG, Voice_ptr, 6);
     // KBS_@v1 and @v2 are sometimes negative? but igonore it
     KEYUPDATE(KBS_TL1, S0022, 7);
     KEYUPDATE(KBS_TL2, S0023, 8);
-    KEYUPDATE(KBS_DATA, S0004, 9);
+    KEYUPDATE(KBS_DATA, Voice_ptr, 9);
     KEYUPDATE(KBS_KC1, S0012, 0xA);
     KEYUPDATE(KBS_KC2, S0014, 0xB);
     
@@ -58,7 +58,7 @@ void renewTRACKINFO()
     TRACKUPDATE(BEND, d0_w, 1);
     d0_w = (UInt16)(FM->S001c >> 6); // original sourcecode is tricky but it just get top 2 bits
     TRACKUPDATE(PAN, d0_w, 2);
-    TRACKUPDATE(PROGRAM, FM->S0004, 3)
+    TRACKUPDATE(PROGRAM, FM->Voice_ptr, 3)
     d0_b = G->L00223c[ch];
     G->L00223c[ch] |= 0x80;
     if((0x80 & d0_b) == 0){
