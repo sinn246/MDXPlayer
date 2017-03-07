@@ -49,6 +49,8 @@ extern volatile unsigned char OpmReg1B;  // OPM ÉåÉWÉXÉ^ $1B ÇÃì‡óe
 
 // sorry there is not in iOS #include <android/log.h>
 #define LOG_D(msg) __android_log_write(ANDROID_LOG_DEBUG, "mxdrvg", msg)
+// for iOS
+#define LOG(...) fprintf(stderr,__VA_ARGS__)
 
 /***************************************************************/
 
@@ -2408,6 +2410,7 @@ static void L000534(
     G.L002231 = CLR;
     A0 = G.MDXBUF;
     // ここから２行は６４ビット環境では明らかにおかしい。しかしMXDRVG(D0=0x0D)という謎の？コマンドで呼ばれるのみなので放置
+    LOG("ALERT:64-bit unsafe command in file:%s line:%d\n", __FILE__, __LINE__);
     G.L002218 = (UBYTE *)GETBLONG( A0 );
     G.L00221c = (UBYTE *)GETBLONG( A0+4 );
     L00063e();
@@ -2583,7 +2586,7 @@ L0005e8:;
     A0 = G.PDXBUF;
     G.L00221c = A0;
     D0 = G.PDXSIZE;
-    
+//    LOG("PDXBUF = %p\n",A0);
     /*
      ; fall down
      */
@@ -3061,6 +3064,7 @@ static void L000788(
     G.L001e28 = A0;
     G.L001e22 = GETBWORD( A0 );
     //ここから2行は64ビット環境では上手く動かない。しかし何故かここは呼ばれないみたい？
+    LOG("ALERT:64-bit unsafe command in file:%s line:%d\n", __FILE__, __LINE__);
     A1 = (UBYTE *)GETBLONG( A0+2 );
     G.L00221c = (UBYTE *)GETBLONG( A1 );
     A1 += 4;
@@ -4073,7 +4077,10 @@ static void L000c66(
      */
     if ( !(A6->S0016 & (1<<0) ) ) goto L000cce;
     if ( A6->S0020 ) goto L000cca;
-    if ( (SBYTE)(A6->S0018) < 0 ) goto L000cbe;
+    if ( (SBYTE)(A6->S0018) < 0 ){
+//        LOG( "line %d,A6->S0018 < 0 \n",__LINE__ );
+        goto L000cbe;
+    }
     L000d84();
     L000e66();
     if ( A6->S0016 & (1<<3) ) goto L000cb4;
@@ -4133,7 +4140,10 @@ L000cce:;
      bsr     L000cdc
      bsr     L000dfe
      */
-    if ( (SBYTE)(A6->S0018) < 0 ) goto L000cda;
+    if ( (SBYTE)(A6->S0018) < 0 ){
+//        LOG( "line %d,A6->S0018 < 0 \n",__LINE__ );
+        goto L000cda;
+    }
     L000cdc();
     L000dfe();
     
@@ -4580,7 +4590,10 @@ L000e92:;
      moveq.l #$08,d1
      bra     L_WRITEOPM
      */
-    if ( (SBYTE)A6->S0018 < 0 ) goto L000eb2;
+    if ( (SBYTE)A6->S0018 < 0 ){
+//        LOG( "line %d,A6->S0018 < 0 \n",__LINE__ );
+        goto L000eb2;
+    }
     D2 = A6->S001d;
     A2 = &G.L00223c[0];
     A2[D7] = (UBYTE)D2;
@@ -4927,7 +4940,10 @@ static void L001050(
      move.l  $0008(a6),d0
      add.l   d0,$000c(a6)
      */
-    if ( (SBYTE)A6->S0018 < 0 ) goto L001092;
+    if ( (SBYTE)A6->S0018 < 0 ){
+//        LOG( "line %d,A6->S0018 < 0 \n",__LINE__ );
+        goto L001092;
+    }
     if ( (SBYTE)A6->S0016 >= 0 ) goto L00106a;
     if ( A6->S0020 ) goto L00106a;
     D0 = A6->S0008;
@@ -5529,6 +5545,11 @@ L0011dc:;
         LOG_D(s);
     }
 #endif
+#if 0 // by sinn246
+    if(A6->S0018 > 128 && *A4 > 0xdf){
+        LOG("SEQ: %2d %p %02X %02X\n", A6->S0018, A4, *(A4), *(A4+1));
+    }
+#endif
     
     D0 = 0x00;
     D1 = 0x00;
@@ -5697,7 +5718,36 @@ static void L0012be(									// @@ @
      movea.l (L002228),a0
      bra     L0012d0
      */
-    if ( (SBYTE)A6->S0018 < 0 ) goto L0012e0;
+    if ( (SBYTE)A6->S0018 < 0 ){
+// Changed by sinn246 from here
+//        goto L0012e0;
+//    L0012e0:;
+        /*
+         move.b  (a4)+,$0004_b(a6)
+         rts
+         */
+        
+        //本当にADPCM bank change するかのチェック
+      if( G.L00222c !=  NULL){
+        volatile UBYTE* newbank = G.L00222c + *(A4) * 96 * 8;
+        int i,l;
+        for(i=0;i<96;i++){
+          l = GETBLONG(newbank+i*8);
+          if(l<0 || l>G.PDXSIZE){
+            LOG("PDX bank switch error. Ignoring bank switch\n");
+            break;
+          }
+        }
+        if(i==96){ // test passed until the end
+          A6->S0004_b = *(A4++);
+          LOG("PDX bank changed = %d\n",A6->S0004_b);
+          return;
+        }
+        // test failed so ignore bank switching
+      }
+    }
+// Changed by sinn246 until here
+
     D0 = *(A4++);
     A0 = G.L002228;
     goto L0012d0;
@@ -5725,15 +5775,10 @@ L0012d0:;
      */
     if ( *(A0++) != (UBYTE)D0 ) goto L0012cc;
     A6->S0004 = A0;
+//    LOG("final A0 = %p\n",A0);
+    A6->S0004_b = 0; //by SN
     A6->S0017 |= 0x02;
     return;
-    
-L0012e0:;
-    /*
-     move.b  (a4)+,$0004_b(a6)
-     rts
-     */
-    A6->S0004_b = *(A4++);
     
 }
 
@@ -5755,7 +5800,10 @@ static void L0012e6(									// @@ p
      ori.b   #$04,$0017(a6)
      rts
      */
-    if ( (SBYTE)A6->S0018 < 0 ) goto L001302;
+    if ( (SBYTE)A6->S0018 < 0 ){
+//        LOG( "line %d,A6->S0018 < 0 \n",__LINE__ );
+        goto L001302;
+    }
     D0 = A6->S001c;
     D0 &= 0x3f;
     D0 |= (*(A4++))<<6;
@@ -6417,7 +6465,10 @@ static void L0014dc(
      bra     L_WRITEOPM
      */
     D2 = *(A4++);
-    if ( (SBYTE)(A6->S0018) < 0x00 ) goto L0014ee;
+    if ( (SBYTE)(A6->S0018) < 0x00 ){
+//        LOG( "line %d,A6->S0018 < 0 \n",__LINE__ );
+        goto L0014ee;
+    }
     G.L002232 = (UBYTE)D2;
     D1 = 0x0f;
     L_WRITEOPM(); return;

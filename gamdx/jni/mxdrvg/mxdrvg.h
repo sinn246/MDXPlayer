@@ -87,8 +87,8 @@ typedef struct tagMXDRVG_WORK_GLOBAL {
 	ULONG L00220c;
 	UBYTE volatile *L002218;
 	UBYTE volatile *L00221c;
-  ULONG MDXSIZE;
-  ULONG PDXSIZE;
+    ULONG MDXSIZE;
+    ULONG PDXSIZE;
 	UBYTE volatile *L002228;	// voice data
 	UBYTE volatile *L00222c;
 	UBYTE L002230;
