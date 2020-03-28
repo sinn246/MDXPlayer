@@ -216,12 +216,38 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
     
     [self initAudio];
     
-    [[MPRemoteCommandCenter sharedCommandCenter].playCommand addTarget:self action:@selector(doPlay)];
-    [[MPRemoteCommandCenter sharedCommandCenter].pauseCommand addTarget:self action:@selector(doPause)];
-    [[MPRemoteCommandCenter sharedCommandCenter].togglePlayPauseCommand addTarget:self action:@selector(togglePause)];
-    [[MPRemoteCommandCenter sharedCommandCenter].nextTrackCommand addTarget:self action:@selector(goNext)];
-    [[MPRemoteCommandCenter sharedCommandCenter].previousTrackCommand addTarget:self action:@selector(goPrev)];
+    [[MPRemoteCommandCenter sharedCommandCenter].playCommand addTarget:self action:@selector(Remote_doPlay:)];
+    [[MPRemoteCommandCenter sharedCommandCenter].pauseCommand addTarget:self action:@selector(Remote_doPause:)];
+    [[MPRemoteCommandCenter sharedCommandCenter].togglePlayPauseCommand addTarget:self action:@selector(Remote_togglePause:)];
+    [[MPRemoteCommandCenter sharedCommandCenter].nextTrackCommand addTarget:self action:@selector(Remote_goNext:)];
+    [[MPRemoteCommandCenter sharedCommandCenter].previousTrackCommand addTarget:self action:@selector(Remote_goPrev:)];
     return self;
+}
+
+- (MPRemoteCommandHandlerStatus) Remote_doPlay: (MPRemoteCommandEvent*) event
+{
+    [self doPlay];
+    return MPRemoteCommandHandlerStatusSuccess;
+}
+- (MPRemoteCommandHandlerStatus) Remote_doPause: (MPRemoteCommandEvent*) event
+{
+    [self doPause];
+    return MPRemoteCommandHandlerStatusSuccess;
+}
+- (MPRemoteCommandHandlerStatus) Remote_togglePause: (MPRemoteCommandEvent*) event
+{
+    [self togglePause];
+    return MPRemoteCommandHandlerStatusSuccess;
+}
+- (MPRemoteCommandHandlerStatus) Remote_goNext: (MPRemoteCommandEvent*) event
+{
+    [self goNext];
+    return MPRemoteCommandHandlerStatusSuccess;
+}
+- (MPRemoteCommandHandlerStatus) Remote_goPrev: (MPRemoteCommandEvent*) event
+{
+    [self goPrev];
+    return MPRemoteCommandHandlerStatusSuccess;
 }
 
 -(void)setSamplingRate:(NSInteger)samplingRate	// 44100 22050 48000 62500
@@ -270,8 +296,8 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
     
     
     AVAudioSession *session = [AVAudioSession sharedInstance];
-    if(_samplingRate > 48000){// 可能な限り高い周波数で出力
-        [session setPreferredSampleRate:192000.0 error:nil];
+    if(_samplingRate == 62500){
+        [session setPreferredSampleRate:192000.0 error:nil]; // 可能な限り高い周波数で出力
     }else{
         [session setPreferredSampleRate:(double)_samplingRate error:nil];
     }
@@ -279,23 +305,22 @@ static pthread_mutex_t mxdrv_mutex;  // 演奏中にMDXファイルを変更す�
     [session setCategory:AVAudioSessionCategoryPlayback error:nil];
     [session setActive:YES error:nil];
     
-    NSLog(@"Actual sample rate: %f\n",[session sampleRate]);
-    
-    float sr = [session sampleRate];
-    
+    float outrate = [session sampleRate];  //実際の出力周波数をみてみる
+    NSLog(@"Actual sample rate: %f\n",outrate);
+  
     dispatch_async(dispatch_get_main_queue(), ^{
-        [_delegate didChangeSamprate:_samplingRate out:sr];
+        [_delegate didChangeSamprate:_samplingRate out:outrate];
     });
 
     AudioStreamBasicDescription audioFormat;
 #ifdef USE_SPEEX_FOR_DOWNSAMPLING
-    // 62500 HzのときはMXDRVG内部では62500Hzで処理、出力にspeexダウンサンプラをかませてsr Hzで出力
+    // 62500 HzのときはMXDRVG内部では62500Hzで処理、出力にspeexダウンサンプラをかませてoutrate Hzで出力
     if(_samplingRate == 62500){
-        MXDRVG_MakeResampler(62500,(int)sr);
+        MXDRVG_MakeResampler(62500,(int)outrate);
     }else{
         MXDRVG_ClearResampler();
     }
-    audioFormat.mSampleRate         = _samplingRate==62500 ? sr : _samplingRate;
+    audioFormat.mSampleRate         = outrate;
 #else
     // SPEEXリサンプラを使わずにApple CoreAudioに任せる。
     // 内部で勝手に周波数変換してくれる模様
